@@ -14,14 +14,24 @@ void trataSig(int i) {
 
 int verificaUser(char *nome, struct Cliente **a){
     for(int i=0;i<NUTILIZADORES;i++){
-        if(a[i]==NULL){
-            strcpy(a[i]->nome,nome);
-            break;
-        }else{
+        if(a[i]!=NULL){
             if(strcmp(nome,a[i]->nome)==0){
                 printf("Utilizador ja existente\n");
                 return 0;
             }
+        }
+    }
+    struct Cliente *ptr;
+    for(int i=0; i<NUTILIZADORES;i++){
+        if(a[i]==NULL){
+            ptr=(struct Cliente*)malloc(sizeof(struct Cliente));
+            if(ptr== NULL){
+                printf("Nao foi possivel criar o cliente");
+                return 0;
+            }
+            a[i]=ptr;
+            strcpy(a[i]->nome,nome);
+            break;
         }
     }
 
@@ -31,7 +41,7 @@ int verificaUser(char *nome, struct Cliente **a){
 
 int main(){
     struct Cliente *users[NUTILIZADORES]={NULL};
-    char *comando;
+    char comando[50];
 
     pergunta_t perg;/* mensagem do "tipo" pergunta */
     resposta_t resp;/* mensagem do "tipo" resposta */
@@ -140,40 +150,10 @@ int main(){
         }
     } /* fim do ciclo principal do servidor */
     /* em principio não chega a este ponto - sai via SIGINT */
+    printf("\nVou fechar!!\n");
     close(s_fifo_fd);
     unlink(CONTROLADOR_FIFO);
 
 
     return 0;
 } /* fim da função main do servidor */
-
-
-
-
-
-
-
-    /*while(1){
-        printf("Comando: ");
-        scanf("%s",comando);
-        
-        if(strcmp(comando,"listar")==0){
-
-        }else if(strcmp(comando,"utiliz")==0){
-
-        }else if(strcmp(comando,"frota")==0){
-
-        }else if(strcmp(comando,"cancelar")==0){//falta apanhar o id
-        
-        }else if(strcmp(comando,"km")==0){
-
-        }else if(strcmp(comando,"hora")==0){
-
-        }else if(strcmp(comando,"terminar")==0){
-            break;
-
-        }else{
-            printf("Comando errado\n");
-        }
-    }
-}*/

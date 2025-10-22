@@ -39,5 +39,5 @@ typedef struct {
 
 /* estrutura clientes*/
 struct Cliente {
-    char *nome;
+    char nome[50];
 } ;
