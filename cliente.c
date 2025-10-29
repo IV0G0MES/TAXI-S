@@ -4,6 +4,8 @@
 
 int s_fifo_fd, c_fifo_fd;       /* descritores de ficheiros (pipes) */
 char c_fifo_fname[25];          /* nome do FIFO deste cliente */
+
+
 /* esta função vai atender o sinal SIGINT para terminar o servidor */
 void trataSig(int i) {
     fprintf(stderr, "Cliente a terminar (interrompido via teclado)\n\n");
@@ -20,7 +22,6 @@ int main(int argc, char *argv[]){
     resposta_t resp;/* mensagem do "tipo" resposta */
     int read_res;
     char comando[50];
-    char *username;
     
     if (signal(SIGINT,trataSig) == SIG_ERR) {
         perror("Nao foi possivel configurar o sinal SIGINT\n");

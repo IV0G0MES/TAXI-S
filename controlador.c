@@ -45,9 +45,8 @@ int main(){
 
     pergunta_t perg;/* mensagem do "tipo" pergunta */
     resposta_t resp;/* mensagem do "tipo" resposta */
-    int i, res;
+    int res;
     char c_fifo_fname[50];
-    char * aux;
     int aux1;
 
     //verificaUser(utilizador,users);
@@ -111,9 +110,9 @@ int main(){
         sprintf(c_fifo_fname, CLIENTE_FIFO, perg.pid_cliente);
         /* ---- Abre FIFO do cliente p/ write ---- */
         c_fifo_fd = open(c_fifo_fname, O_WRONLY);
-        if (c_fifo_fd == -1)
+        if (c_fifo_fd == -1){
             perror("\nErro no open - Ninguem quis a resposta\n");
-        else {
+        }else {
             fprintf(stderr,"\nFIFO cliente aberto para WRITE\n");
             /* ---- ENVIA RESPOSTA ---- */
             res = write(c_fifo_fd, & resp, sizeof(resp));
@@ -124,7 +123,7 @@ int main(){
             }
             close(c_fifo_fd); /* FECHA LOGO O FIFO DO CLIENTE! */
             fprintf(stderr,"\nFIFO cliente fechado\n");
-
+        }
         printf("Comando: ");
         scanf("%s",comando);
         
@@ -146,9 +145,8 @@ int main(){
         }else{
             printf("Comando errado\n");
         }
-
-        }
-    } /* fim do ciclo principal do servidor */
+    }
+    /* fim do ciclo principal do servidor */
     /* em principio não chega a este ponto - sai via SIGINT */
     printf("\nVou fechar!!\n");
     close(s_fifo_fd);
