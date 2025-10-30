@@ -38,6 +38,6 @@ typedef struct {
 } resposta_t;
 
 /* estrutura clientes*/
-struct Cliente {
+typedef struct  {
     char nome[50];
-} ;
+} Cliente;

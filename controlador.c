@@ -12,7 +12,7 @@ void trataSig(int i) {
     /* para terminar o processo */
 }
 
-int verificaUser(char *nome, struct Cliente **a){
+int verificaUser(char *nome,Cliente **a){
     for(int i=0;i<NUTILIZADORES;i++){
         if(a[i]!=NULL){
             if(strcmp(nome,a[i]->nome)==0){
@@ -21,10 +21,10 @@ int verificaUser(char *nome, struct Cliente **a){
             }
         }
     }
-    struct Cliente *ptr;
+    Cliente *ptr;
     for(int i=0; i<NUTILIZADORES;i++){
         if(a[i]==NULL){
-            ptr=(struct Cliente*)malloc(sizeof(struct Cliente));
+            ptr=(Cliente*)malloc(sizeof(Cliente));
             if(ptr== NULL){
                 printf("Nao foi possivel criar o cliente");
                 return 0;
@@ -40,7 +40,7 @@ int verificaUser(char *nome, struct Cliente **a){
 }
 
 int main(){
-    struct Cliente *users[NUTILIZADORES]={NULL};
+    Cliente *users[NUTILIZADORES]={NULL};
     char comando[50];
 
     pergunta_t perg;/* mensagem do "tipo" pergunta */
