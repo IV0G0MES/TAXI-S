@@ -39,6 +39,18 @@ int verificaUser(char *nome,Cliente **a){
     return 1;
 }
 
+void lista_users(Cliente **users){
+    for (int i=0;i<30;i++){
+        if(users[i]!=NULL){
+            printf("utilizador N %d\nNome: %s\n",i,users[i]->nome);
+        }
+        else{
+            break;
+        }
+    }
+
+}
+
 int main(){
     Cliente *users[NUTILIZADORES]={NULL};
     char comando[50];
@@ -48,8 +60,6 @@ int main(){
     int res;
     char c_fifo_fname[50];
     int aux1;
-
-    //verificaUser(utilizador,users);
 
 
     printf("\nControlador Iniciado\n");
@@ -128,6 +138,7 @@ int main(){
         scanf("%s",comando);
         
         if(strcmp(comando,"listar")==0){
+            lista_users(users);
 
         }else if(strcmp(comando,"utiliz")==0){
 
