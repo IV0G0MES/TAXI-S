@@ -72,15 +72,18 @@ void lista_users(Cliente **users){
     }
 }
 
-void remove_users(Cliente **users,char *username){
+void remove_users(Cliente **users,int id){
     for(int i=0;i<NUTILIZADORES;i++){
         if(users[i]!=NULL){
-            
+            if(users[i]->id==id){
+                users[i]=NULL;
+                break;
+            }
         }
     }
 }
 
-int agenda(Cliente **a, int id,int hora,char local, int distancia){
+int agenda(Cliente **a, int id,int hora,char local[], int distancia){
     for(int i=0;i<NUTILIZADORES;i++){
         if(a[i]==NULL){
             continue;

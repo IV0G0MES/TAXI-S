@@ -9,6 +9,7 @@ char c_fifo_fname[25];          /* nome do FIFO deste cliente */
 /* esta função vai atender o sinal SIGINT para terminar o servidor */
 void trataSig(int i) {
     fprintf(stderr, "Cliente a terminar (interrompido via teclado)\n\n");
+    
     close(c_fifo_fd);
     close(s_fifo_fd);
     unlink(c_fifo_fname);

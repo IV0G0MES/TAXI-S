@@ -11,10 +11,10 @@
 #include <signal.h>
 
 /* nome do FIFO do controlador */
-#define CONTROLADOR_FIFO "/tmp/ctrl_fifo"
+#define CONTROLADOR_FIFO "./fifos/ctrl_fifo"
 
 /* nome do FIFO cada cliente. P %d será substituído pelo PID com sprintf */
-#define CLIENTE_FIFO "/tmp/cli_%d_fifo"
+#define CLIENTE_FIFO "./fifos/cli_%d_fifo"
 
 /* tamanho máximo de cada palavra */
 #define TAM_MAX 50
@@ -57,9 +57,3 @@ typedef struct{
     char local[50];
     int distancia;
 } Veiculo;
-
-typedef struct{
-    int hora;
-    char local[50];
-    int distancia;
-} Agendamento;
