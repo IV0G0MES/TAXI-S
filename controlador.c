@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include "config.h"
 
 
@@ -10,6 +11,27 @@ void trataSig(int i) {
     unlink(CONTROLADOR_FIFO);
     exit(EXIT_SUCCESS);
     /* para terminar o processo */
+}
+
+void preencheVeiculos(Veiculo **a){
+    Veiculo *ptr;
+    for(int i=0;i<NVEICULOS; i++){
+        ptr=(Veiculo*)malloc(sizeof(Veiculo));
+            if(ptr== NULL){
+                printf("Nao foi possivel criar o veiculo");
+                exit(1);
+            }
+            a[i]=ptr;
+        a[i]->id=i;
+        a[i]->ocupado=false;
+    }
+    printf("Vetor veiculos preenchido");
+}
+
+void listaCarros(Veiculo **a){
+    for(int i=0;i<NVEICULOS;i++){
+        printf("Veiculo %d:\nId: %d\nOcupado: %d\nLocal: %s\nDistancia: %d\n",i+1,a[i]->id,a[i]->ocupado,a[i]->local,a[i]->distancia);
+    }
 }
 
 int verificaUser(char *nome,Cliente **a){
@@ -48,11 +70,34 @@ void lista_users(Cliente **users){
             break;
         }
     }
+}
 
+void remove_users(Cliente **users,char *username){
+    for(int i=0;i<NUTILIZADORES;i++){
+        if(users[i]!=NULL){
+            
+        }
+    }
+}
+
+int agenda(Cliente **a, int id,int hora,char local, int distancia){
+    for(int i=0;i<NUTILIZADORES;i++){
+        if(a[i]==NULL){
+            continue;
+        }
+        if(a[i]->id==id){
+            a[i]->agenda.hora=hora;
+            strcpy(a[i]->agenda.local,local);
+            a[i]->agenda.distancia=distancia;
+            return 0;
+        }
+    }
+    return 1;
 }
 
 int main(){
     Cliente *users[NUTILIZADORES]={NULL};
+    Veiculo *carros[NVEICULOS]={NULL};
     char comando[50];
 
     pergunta_t perg;/* mensagem do "tipo" pergunta */
@@ -61,6 +106,8 @@ int main(){
     char c_fifo_fname[50];
     int aux1;
 
+    preencheVeiculos(carros);
+    listaCarros(carros);
 
     printf("\nControlador Iniciado\n");
     if (signal(SIGINT,trataSig) == SIG_ERR) {

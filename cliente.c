@@ -86,7 +86,7 @@ int main(int argc, char *argv[]){
         printf("Comando: ");
         scanf("%s",comando);
         if(strcmp(comando,"agendar")==0){ //falta apanhar hora,local, distancia
-
+            
         }else if(strcmp(comando,"consultar")==0){
 
         }else if(strcmp(comando,"cancelar")==0){//falta apanhar id

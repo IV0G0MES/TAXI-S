@@ -23,7 +23,7 @@
 #define NUTILIZADORES 30
 
 /*Numero maximo de veiculos*/
-#define NVEICULOS 10;
+#define NVEICULOS 10
 
 /* estrutura da mensagem correspondente a um pedido cliente -> controlador*/
 typedef struct {
@@ -37,7 +37,29 @@ typedef struct {
     char palavra[TAM_MAX];
 } resposta_t;
 
+typedef struct{
+    int hora;
+    char local[50];
+    int distancia;
+} Agendamento;
+
 /* estrutura clientes*/
 typedef struct  {
+    int id;//preenchido pelo servidor para conseguir identificar clientes
     char nome[50];
+    Agendamento agenda;
 } Cliente;
+
+/* estrutura veiculos*/
+typedef struct{
+    int id;
+    bool ocupado;
+    char local[50];
+    int distancia;
+} Veiculo;
+
+typedef struct{
+    int hora;
+    char local[50];
+    int distancia;
+} Agendamento;
