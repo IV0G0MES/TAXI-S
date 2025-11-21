@@ -8,7 +8,8 @@
 #include <sys/stat.h>
 #include <ctype.h>
 #include <stdbool.h>
-#include <signal.h>
+#include <signal.h> 
+#include <errno.h>
 
 /* nome do FIFO do controlador */
 #define CONTROLADOR_FIFO "./fifos/ctrl_fifo"
