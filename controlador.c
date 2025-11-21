@@ -185,7 +185,7 @@ int main(){
             fprintf(stderr,"\nFIFO cliente fechado\n");
         }
         printf("Comando: ");
-        scanf("%s",comando);
+        //scanf("%s",comando);
         
         if(strcmp(comando,"listar")==0){
             lista_users(users);

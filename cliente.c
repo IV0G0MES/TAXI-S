@@ -9,7 +9,7 @@ char c_fifo_fname[25];          /* nome do FIFO deste cliente */
 /* esta função vai atender o sinal SIGINT para terminar o servidor */
 void trataSig(int i) {
     fprintf(stderr, "Cliente a terminar (interrompido via teclado)\n\n");
-    
+
     close(c_fifo_fd);
     close(s_fifo_fd);
     unlink(c_fifo_fname);
@@ -59,17 +59,21 @@ int main(int argc, char *argv[]){
     fprintf(stderr, "\nFIFO do cliente aberto para READ (+Write) BLOCK\n");
 
     //Verificação utilizador
-    if(argc<2){
+    printf("%d", argc);
+    if(argc!=2){
         printf("Precisa de indicar um nome de utilizador!!!\n");
         close(c_fifo_fd);
         close(s_fifo_fd);
         unlink(c_fifo_fname);
         exit(EXIT_FAILURE);
     }else{
+        printf("Entrei aqui pah\n");
         strcpy(perg.username,argv[1]);
         write(s_fifo_fd,& perg,sizeof(perg));
         read_res=read (c_fifo_fd, &resp, sizeof(resp));
+        
         if(read_res==sizeof(resp)){
+            printf("%d",resp.confirmUser);
             if(resp.confirmUser==1){
                 printf("User autorizado\n");
             }else{
