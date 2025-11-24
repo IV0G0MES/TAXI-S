@@ -4,6 +4,7 @@
 
 int s_fifo_fd, c_fifo_fd;       /* descritores de ficheiros (pipes) */
 
+//pthread_mutex_lock lock = PTHREAD_MUTEX_INITIALIZER;
 /* esta função vai atender o sinal SIGINT para terminar o servidor */
 void trataSig(int i) {
     fprintf(stderr, "\nControlador a terminar (interrompido via teclado)\n\n");
@@ -29,8 +30,13 @@ void preencheVeiculos(Veiculo **a){
 }
 
 void listaCarros(Veiculo **a){
+    printf("\n----- Frota-----\n");
     for(int i=0;i<NVEICULOS;i++){
-        printf("Veiculo %d:\nId: %d\nOcupado: %d\nLocal: %s\nDistancia: %d\n",i+1,a[i]->id,a[i]->ocupado,a[i]->local,a[i]->distancia);
+        printf("Veiculo %d:\nId: %d\nOcupado: %d\nLocal: %s\nDistancia: %d\n",
+            i+1,a[i]->id,
+            a[i]->ocupado,
+            a[i]->local,
+            a[i]->distancia);
     }
 }
 
@@ -98,9 +104,42 @@ int agenda(Cliente **a, char nome,int hora,char local[], int distancia){
     return 1;
 }
 
-void atendeCliente(){
-    //TODO
-}
+/*void atendeCliente(){
+    pergunta_t pergunta;
+    resposta_t resposta;
+    int res, x;
+    char c_fifo_fname[50];
+    int c_fifo_fd;
+
+    fprintf(stderr, "[Thread] a iniciar escuta do FIFO\n");
+
+    s_fifo_fd = open(CONTROLADOR_FIFO, O_RDWR);
+    if(s_fifo_fd == -1){
+        perror("[Thread] Erro ao abriar FIFO\n");
+        pthread_exit(NULL);
+    }
+
+    while(1){
+        res = read(s_fifo_fd, &perg, sizeof(perg));
+
+        if(res > 0){
+            (res < sizeof(perg)){
+                fprintf(stderr, "\nLongin recebido: %s", perg.username);
+
+                pthread_mutex_lock(&trinco); // bloqueia 
+
+                x = verificaUser(perg.username, users);
+
+                if(x == 1){
+                    resp.confirmUser = true;
+                    sprintf(c_fifo_fname, CLIENTE_FIFO, perg.pid_cliente);
+                }
+
+                pthread_mutex_unlock(&trinco); // desbloqueia
+            }
+        }
+    }
+}*/
 
 int main(){
     Cliente *users[NUTILIZADORES]={NULL};
