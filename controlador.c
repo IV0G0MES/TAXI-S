@@ -13,15 +13,6 @@ void trataSig(int i) {
     /* para terminar o processo */
 }
 
-/*void closePipes(Cliente **users){
-    for (int i=0;i<NUTILIZADORES;i++){
-        if(users[i]==NULL){
-            continue;
-        }
-        
-
-    }
-}*/
 void preencheVeiculos(Veiculo **a){
     Veiculo *ptr;
     for(int i=0;i<NVEICULOS; i++){
@@ -81,10 +72,10 @@ void lista_users(Cliente **users){
     }
 }
 
-void remove_users(Cliente **users,int id){
+void remove_users(Cliente **users,char nome){
     for(int i=0;i<NUTILIZADORES;i++){
         if(users[i]!=NULL){
-            if(users[i]->id==id){
+            if(users[i]->nome==nome){
                 users[i]=NULL;
                 break;
             }
@@ -92,12 +83,12 @@ void remove_users(Cliente **users,int id){
     }
 }
 
-int agenda(Cliente **a, int id,int hora,char local[], int distancia){
+int agenda(Cliente **a, char nome,int hora,char local[], int distancia){
     for(int i=0;i<NUTILIZADORES;i++){
         if(a[i]==NULL){
             continue;
         }
-        if(a[i]->id==id){
+        if(a[i]->nome==nome){
             a[i]->agenda.hora=hora;
             strcpy(a[i]->agenda.local,local);
             a[i]->agenda.distancia=distancia;
@@ -108,8 +99,7 @@ int agenda(Cliente **a, int id,int hora,char local[], int distancia){
 }
 
 void atendeCliente(){
-    
-
+    //TODO
 }
 
 int main(){
@@ -124,7 +114,6 @@ int main(){
     int aux1;
 
     preencheVeiculos(carros);
-    listaCarros(carros);
 
     printf("\nControlador Iniciado\n");
     if (signal(SIGINT,trataSig) == SIG_ERR) {
@@ -177,9 +166,7 @@ int main(){
                         }
                         if(strcmp(users[i]->nome,perg.username)==0){
                             strcpy(users[i]->fName,c_fifo_fname);
-                        }
-                        
-                        
+                        } 
                     }
                 }else {
                     resp.confirmUser = false;
@@ -230,7 +217,7 @@ int main(){
             }else if(strcmp(comando,"utiliz")==0){
 
             }else if(strcmp(comando,"frota")==0){
-
+                listaCarros(carros);
             }else if(strcmp(comando,"cancelar")==0){//falta apanhar o id
             
             }else if(strcmp(comando,"km")==0){
