@@ -10,6 +10,7 @@
 #include <stdbool.h>
 #include <signal.h> 
 #include <errno.h>
+#include <pthread.h>
 
 /* nome do FIFO do controlador */
 #define CONTROLADOR_FIFO "./fifos/ctrl_fifo"
@@ -49,6 +50,7 @@ typedef struct  {
     int id;//preenchido pelo servidor para conseguir identificar clientes
     char nome[50];
     Agendamento agenda;
+    char fName[50];
 } Cliente;
 
 /* estrutura veiculos*/
@@ -58,3 +60,9 @@ typedef struct{
     char local[50];
     int distancia;
 } Veiculo;
+
+//Threads
+typedef struct {
+    pthread_t tid;
+    void * retval;
+} TDados;

@@ -13,6 +13,15 @@ void trataSig(int i) {
     /* para terminar o processo */
 }
 
+/*void closePipes(Cliente **users){
+    for (int i=0;i<NUTILIZADORES;i++){
+        if(users[i]==NULL){
+            continue;
+        }
+        
+
+    }
+}*/
 void preencheVeiculos(Veiculo **a){
     Veiculo *ptr;
     for(int i=0;i<NVEICULOS; i++){
@@ -64,7 +73,7 @@ int verificaUser(char *nome,Cliente **a){
 void lista_users(Cliente **users){
     for (int i=0;i<30;i++){
         if(users[i]!=NULL){
-            printf("utilizador N %d\nNome: %s\n",i,users[i]->nome);
+            printf("Utilizador N %d\nNome: %s\nNome do fifo: %s\n",i,users[i]->nome,users[i]->fName);
         }
         else{
             break;
@@ -98,14 +107,19 @@ int agenda(Cliente **a, int id,int hora,char local[], int distancia){
     return 1;
 }
 
+void atendeCliente(){
+    
+
+}
+
 int main(){
     Cliente *users[NUTILIZADORES]={NULL};
     Veiculo *carros[NVEICULOS]={NULL};
     char comando[50];
-        
+    TDados tCliente;
     pergunta_t perg;/* mensagem do "tipo" pergunta */
     resposta_t resp;/* mensagem do "tipo" resposta */
-    int res;
+    int res,resT;
     char c_fifo_fname[50];
     int aux1;
 
@@ -154,24 +168,26 @@ int main(){
 
                 strcpy(resp.palavra, "DESCONHECIDO\n"); /* caso n encontre */
                 aux1 = verificaUser(perg.username, users);
+                sprintf(c_fifo_fname, CLIENTE_FIFO, perg.pid_cliente);
                 if(aux1 == 1){
                     resp.confirmUser = true;
-
-                    /* for(int i=0;i<NUTILIZADORES;i++){
-                        if(users[i]!=NULL){
-                            users[i]->nome=perg.username;
-                            break;
-                        }
-                    }
                     for(int i=0;i<NUTILIZADORES;i++){
-                        printf("User %d: %s\n",i,users[i]->nome);
-                    }*/
+                        if(users[i]==NULL){
+                            continue;
+                        }
+                        if(strcmp(users[i]->nome,perg.username)==0){
+                            strcpy(users[i]->fName,c_fifo_fname);
+                        }
+                        
+                        
+                    }
                 }else {
                     resp.confirmUser = false;
                 }
                 fprintf(stderr, "\nConfirm user = [%d]\n", resp.confirmUser);
                 /* ---- OBTEM FILENAME DO FIFO PARA A RESPOSTA ---- */
-                sprintf(c_fifo_fname, CLIENTE_FIFO, perg.pid_cliente);
+                //sprintf(c_fifo_fname, CLIENTE_FIFO, perg.pid_cliente);
+
                 /* ---- Abre FIFO do cliente p/ write ---- */           
                 c_fifo_fd = open(c_fifo_fname, O_WRONLY);
                 if(c_fifo_fd == -1){
@@ -185,6 +201,7 @@ int main(){
                     }else{
                         perror("\nerro a escrever a resposta\n");
                     }
+
                     close(c_fifo_fd); /* FECHA LOGO O FIFO DO CLIENTE! */
                     fprintf(stderr,"\nFIFO cliente fechado\n");
                 }
@@ -193,6 +210,13 @@ int main(){
         else if(res == -1 && errno != EAGAIN){
             perror("ERRO de leitura no fifo");
         }
+
+
+        /*resT = pthread_create(tCliente.tid,NULL,atendeCliente,(void *) &tCliente);
+        if (resT != 0) {
+            perror("\nErro na criação da thread");
+            exit(1);
+        }*/
 
         int n = read(STDIN_FILENO, comando, sizeof(comando)-1);
 
@@ -214,7 +238,7 @@ int main(){
             }else if(strcmp(comando,"hora")==0){
 
             }else if(strcmp(comando,"terminar")==0){
-                break;s
+                break;
             }else {
                 printf("Comando errado\n");
             }
