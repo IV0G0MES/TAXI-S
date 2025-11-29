@@ -147,10 +147,31 @@ void trataPedido(void *arg){
         }
     }else{
         if(strncmp(pergunta.comando,"agendar ",8)==0){
+            int hora;
+            char local[50];
+            int distancia;
+            if(sscanf(pergunta.comando+8,"%d %s %d",&hora,local,&distancia)==3){
+                if(agenda(sd->users,pergunta.username,hora,local,distancia)==0){
+                    strcpy(resposta.responde,"Agendamento efetuado com sucesso\n");
+                }else{
+                    strcpy(resposta.responde,"Agendamento nao efetuado, erro no servidor\n");
+                }
+            }else{
+                strcpy(resposta.responde,"Sintaxe do comando agendar incorreta\n");
+            }
 
-        }
-        if(strncmp(pergunta.comando,"consultar ",10)==0){
-            
+        }else if(strncmp(pergunta.comando,"consultar ",10)){
+
+        }else if(strncmp(pergunta.comando,"cancelar ",00)){
+
+        }else if(strncmp(pergunta.comando,"entrar ",10)){
+
+        }else if(strncmp(pergunta.comando,"sair ",10)){
+
+        }else if(strncmp(pergunta.comando,"terminar ",10)){
+
+        }else{
+            strcpy(resposta.responde,"Comando Errado\n");
         }
     }
 
@@ -172,6 +193,8 @@ void trataPedido(void *arg){
             printf("Comando errado\n");
         }
             */
+
+        //FALTA PASSO 3- ENVIAR RESPOSTA PARA O CLIENTE
     
 }
 
@@ -276,100 +299,38 @@ int main(){
         exit(EXIT_FAILURE);
     }
 
-    //fprintf(stderr,"\nFIFO aberto para READ (+WRITE) bloqueante\n");
-    
-    /* ciclo principal: read pedido -> write resposta -> repete */
-    while (1) {
-        res = read(sd.cFifo, & perg, sizeof(perg));
-        if(res > 0){
-            if(res < sizeof(perg)){
-                fprintf(stderr, "\nRecebida pergunta incompleta [bytes lidos: %d]\n", res);
-            }else{
-                fprintf(stderr, "\nRecebido [%s]", perg.username);
+    while (sd.ligado) {
+        printf("Comando: ");
+        if(fgets(comando,sizeof(comando),stdin)==NULL)
+            break;
+        comando[strcspn(comando, "\n")] = '\0';
+        if(strcmp(comando, "listar") == 0){
+            printf("------listar-------\n");
+            lista_users(sd.users);
+            printf("-------------------\n");
 
-                strcpy(resp.palavra, "DESCONHECIDO\n"); /* caso n encontre */
-                aux1 = verificaUser(perg.username, sd.users);
-                sprintf(c_fifo_fname, CLIENTE_FIFO, perg.pid_cliente);
-                if(aux1 == 1){
-                    resp.confirmUser = true;
-                    for(int i=0;i<NUTILIZADORES;i++){
-                        if(sd.users[i]==NULL){
-                            continue;
-                        }
-                        if(strcmp(sd.users[i]->nome,perg.username)==0){
-                            strcpy(sd.users[i]->fName,c_fifo_fname);
-                        } 
-                    }
-                }else {
-                    resp.confirmUser = false;
-                }
-                fprintf(stderr, "\nConfirm user = [%d]\n", resp.confirmUser);
-                /* ---- OBTEM FILENAME DO FIFO PARA A RESPOSTA ---- */
-                //sprintf(c_fifo_fname, CLIENTE_FIFO, perg.pid_cliente);
+        }else if(strcmp(comando,"utiliz")==0){
 
-                /* ---- Abre FIFO do cliente p/ write ---- */           
-                c_fifo_fd = open(c_fifo_fname, O_WRONLY);
-                if(c_fifo_fd == -1){
-                    perror("\nErro no open - Ninguem quis a resposta\n");
-                }else{
-                    fprintf(stderr,"\nFIFO cliente aberto para WRITE\n");
-                    /* ---- ENVIA RESPOSTA ---- */
-                    res = write(c_fifo_fd, & resp, sizeof(resp));
-                    if (res == sizeof(resp)){
-                        fprintf(stderr,"\nescreveu a resposta\n");
-                    }else{
-                        perror("\nerro a escrever a resposta\n");
-                    }
-
-                    close(c_fifo_fd); /* FECHA LOGO O FIFO DO CLIENTE! */
-                    fprintf(stderr,"\nFIFO cliente fechado\n");
-                }
-            }
-        }
-        else if(res == -1 && errno != EAGAIN){
-            perror("ERRO de leitura no fifo");
-        }
-
-
-        /*resT = pthread_create(tCliente.tid,NULL,atendeCliente,(void *) &tCliente);
-        if (resT != 0) {
-            perror("\nErro na criação da thread");
-            exit(1);
-        }*/
-
-        int n = read(STDIN_FILENO, comando, sizeof(comando)-1);
-
-        if(n > 0){
-            comando[n-1] = '\0';
-            if(strcmp(comando, "listar") == 0){
-                printf("------listar-------\n");
-                lista_users(sd.users);
-                printf("-------------------\n");
-
-            }else if(strcmp(comando,"utiliz")==0){
-
-            }else if(strcmp(comando,"frota")==0){
-                listaCarros(sd.carros);
-            }else if(strcmp(comando,"cancelar")==0){//falta apanhar o id
+        }else if(strcmp(comando,"frota")==0){
+            listaCarros(sd.carros);
+        }else if(strcmp(comando,"cancelar")==0){//falta apanhar o id
             
-            }else if(strcmp(comando,"km")==0){
+        }else if(strcmp(comando,"km")==0){
 
-            }else if(strcmp(comando,"hora")==0){
+        }else if(strcmp(comando,"hora")==0){
 
-            }else if(strcmp(comando,"terminar")==0){
-                break;
-            }else {
-                printf("Comando errado\n");
-            }
+        }else if(strcmp(comando,"terminar")==0){
+           break;
+        }else {
+            printf("Comando errado\n");
         }
-        usleep(1000000);
     }
+        usleep(1000000);
+
     /* fim do ciclo principal do servidor */
     /* em principio não chega a este ponto - sai via SIGINT */
     printf("\nVou fechar!!\n");
     close(sd.cFifo);
     unlink(CONTROLADOR_FIFO);
-
-
     return 0;
 } /* fim da função main do servidor */

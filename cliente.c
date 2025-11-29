@@ -92,12 +92,17 @@ int main(int argc, char *argv[]){
     
     while(1){
         printf("Comando: ");
-        scanf("%s",comando);
+        if(fgets(comando,sizeof(comando),stdin)==NULL)
+            break;
+        comando[strcspn(comando, "\n")] = '\0';
+
         perg.pid_cliente=getpid();
         strcpy(perg.username,argv[1]);
         strcpy(perg.tipo_pergunta,"COMANDO");
         strcpy(perg.comando,comando);
         write(s_fifo_fd,& perg,sizeof(perg));
+        read(c_fifo_fd, &resp, sizeof(resp));
+        printf("%s",resp.responde);
     }
     printf("\nVou fechar!!\n");
     close(c_fifo_fd);
