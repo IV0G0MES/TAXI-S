@@ -1,0 +1,5 @@
+# Ignora tudo dentro da pasta temporaria
+fifos/*
+
+# Mas NÃO ignora o ficheiro .gitkeep (o ponto de exclamação significa "exceto")
+!fifos/.gitkeep
