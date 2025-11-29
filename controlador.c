@@ -142,8 +142,8 @@ int agenda(Cliente **a, char nome,int hora,char local[], int distancia){
 }*/
 
 int main(){
-    Cliente *users[NUTILIZADORES]={NULL};
-    Veiculo *carros[NVEICULOS]={NULL};
+    ControladorData cd;
+    
     char comando[50];
     TDados tCliente;
     pergunta_t perg;/* mensagem do "tipo" pergunta */

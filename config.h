@@ -43,13 +43,14 @@ typedef struct{
     int hora;
     char local[50];
     int distancia;
+    int *prox;
 } Agendamento;
 
 /* estrutura clientes*/
 typedef struct  {
     int id;//preenchido pelo servidor para conseguir identificar clientes
     char nome[50];
-    Agendamento agenda;
+    Agendamento *agenda;
     char fName[50];
 } Cliente;
 
@@ -66,3 +67,11 @@ typedef struct {
     pthread_t tid;
     void * retval;
 } TDados;
+
+typedef struct {
+    Cliente *users[NUTILIZADORES];
+    Veiculo *carros[NVEICULOS];
+    int cFifo;
+    bool ligado;
+    pthread_mutex_t trinco;
+} ControladorData;
