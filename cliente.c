@@ -18,7 +18,6 @@ void trataSig(int i) {
 }
 
 int main(int argc, char *argv[]){
-    
     pergunta_t perg;/* mensagem do "tipo" pergunta */
     resposta_t resp;/* mensagem do "tipo" resposta */
     int read_res;
@@ -67,22 +66,26 @@ int main(int argc, char *argv[]){
         unlink(c_fifo_fname);
         exit(EXIT_FAILURE);
     }else{
-        printf("Entrei aqui pah\n");
+        perg.pid_cliente=getpid();
         strcpy(perg.username,argv[1]);
+        strcpy(perg.tipo_pergunta,"LOGIN");
         write(s_fifo_fd,& perg,sizeof(perg));
         read_res=read (c_fifo_fd, &resp, sizeof(resp));
         
         if(read_res==sizeof(resp)){
-            printf("%d",resp.confirmUser);
-            if(resp.confirmUser==1){
-                printf("User autorizado\n");
-            }else{
-                printf("Ja existe alguem com esse username\n");
+            printf("%s",resp.responde);
+            if(resp.criado==0){
                 close(c_fifo_fd);
                 close(s_fifo_fd);
                 unlink(c_fifo_fname);
                 exit(EXIT_FAILURE);
             }
+        }else{
+            printf("Erro de comunicacao com o servidor");
+            close(c_fifo_fd);
+            close(s_fifo_fd);
+            unlink(c_fifo_fname);
+            exit(EXIT_FAILURE);
         }
     }
     
@@ -90,22 +93,11 @@ int main(int argc, char *argv[]){
     while(1){
         printf("Comando: ");
         scanf("%s",comando);
-        if(strcmp(comando,"agendar")==0){ //falta apanhar hora,local, distancia
-            
-        }else if(strcmp(comando,"consultar")==0){
-
-        }else if(strcmp(comando,"cancelar")==0){//falta apanhar id
-
-        }else if(strcmp(comando,"entrar")==0){//falta apanhar destino
-        
-        }else if(strcmp(comando,"sair")==0){
-
-        }else if(strcmp(comando,"terminar")==0){
-            break;
-
-        }else{
-            printf("Comando errado\n");
-        }
+        perg.pid_cliente=getpid();
+        strcpy(perg.username,argv[1]);
+        strcpy(perg.tipo_pergunta,"COMANDO");
+        strcpy(perg.comando,comando);
+        write(s_fifo_fd,& perg,sizeof(perg));
     }
     printf("\nVou fechar!!\n");
     close(c_fifo_fd);

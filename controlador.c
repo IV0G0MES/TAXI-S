@@ -1,14 +1,14 @@
 #define _GNU_SOURCE
 #include "config.h"
 
-
-int s_fifo_fd, c_fifo_fd;       /* descritores de ficheiros (pipes) */
+ServidorData sd;
+int c_fifo_fd;       /* descritores de ficheiros (pipes) */
 
 //pthread_mutex_lock lock = PTHREAD_MUTEX_INITIALIZER;
 /* esta função vai atender o sinal SIGINT para terminar o servidor */
 void trataSig(int i) {
     fprintf(stderr, "\nControlador a terminar (interrompido via teclado)\n\n");
-    close(s_fifo_fd);
+    close(sd.cFifo);
     unlink(CONTROLADOR_FIFO);
     exit(EXIT_SUCCESS);
     /* para terminar o processo */
@@ -31,12 +31,8 @@ void preencheVeiculos(Veiculo **a){
 
 void listaCarros(Veiculo **a){
     printf("\n----- Frota-----\n");
-    for(int i=0;i<NVEICULOS;i++){
-        printf("Veiculo %d:\nId: %d\nOcupado: %d\nLocal: %s\nDistancia: %d\n",
-            i+1,a[i]->id,
-            a[i]->ocupado,
-            a[i]->local,
-            a[i]->distancia);
+    for(int i=0; i<NVEICULOS; i++){
+        printf("Veiculo %d:\nId: %d\nOcupado: %d\nLocal: %s\nDistancia: %d\n",i+1 ,a[i]->id,a[i]->ocupado,a[i]->local,a[i]->distancia);
     }
 }
 
@@ -45,7 +41,7 @@ int verificaUser(char *nome,Cliente **a){
         if(a[i]!=NULL){
             if(strcmp(nome,a[i]->nome)==0){
                 printf("Utilizador ja existente\n");
-                return 0;
+                return 1;
             }
         }
     }
@@ -55,16 +51,17 @@ int verificaUser(char *nome,Cliente **a){
             ptr=(Cliente*)malloc(sizeof(Cliente));
             if(ptr== NULL){
                 printf("Nao foi possivel criar o cliente");
-                return 0;
+                return 2;
             }
             a[i]=ptr;
             strcpy(a[i]->nome,nome);
-            break;
+            printf("Cliente criado com sucesso\n");
+            return 0;
         }
     }
 
-    printf("Cliente criado com sucesso\n");
-    return 1;
+    printf("Nao ha espaco para mais clientes\n");
+    return 3;
 }
 
 void lista_users(Cliente **users){
@@ -89,60 +86,152 @@ void remove_users(Cliente **users,char nome){
     }
 }
 
-int agenda(Cliente **a, char nome,int hora,char local[], int distancia){
+int agenda(Cliente **clientes, char nome,int hora,char local[], int distancia){
+    Agendamento *nova_agenda=malloc(sizeof(Agendamento));
+    nova_agenda->hora=hora;
+    strcpy(nova_agenda->local,local);
+    nova_agenda->distancia=distancia;
+    nova_agenda->prox=NULL;
+
     for(int i=0;i<NUTILIZADORES;i++){
-        if(a[i]==NULL){
+        if(clientes[i]!=NULL && strcmp(clientes[i]->nome,nome)){
+            
+        }
+        if(clientes[i]==NULL){
             continue;
         }
-        if(a[i]->nome==nome){
-            a[i]->agenda.hora=hora;
-            strcpy(a[i]->agenda.local,local);
-            a[i]->agenda.distancia=distancia;
+        if(strcmp(clientes[i]->nome,nome)==0){
+            if(clientes[i]->agenda==NULL){
+                clientes[i]->agenda=nova_agenda;
+            }
+            else{
+                Agendamento *agendamento_atual=clientes[i]->agenda;
+                while (agendamento_atual->prox!=NULL){
+                    agendamento_atual=agendamento_atual->prox;
+                }
+                agendamento_atual->prox=nova_agenda;
+            }
+
             return 0;
         }
     }
+    printf("Cliente nao encontrado");
     return 1;
 }
 
-/*void atendeCliente(){
-    pergunta_t pergunta;
+void trataPedido(void *arg){
+    AuxiliaP *aux=(AuxiliaP *) arg;
+    ServidorData *sd=aux->sd;
+    pergunta_t pergunta=aux->pergunta; 
+    free(aux);
+
     resposta_t resposta;
-    int res, x;
+    char ClienteFifo[50];
+    sprintf(ClienteFifo,CLIENTE_FIFO,pergunta.pid_cliente);
+
+    if(strcmp(pergunta.tipo_pergunta,"LOGIN")==0){
+        int verifica;
+        verifica=verificaUser(pergunta.username,sd->users);
+        if(verifica==0){
+            strcpy(resposta.responde,"Cliente criado com sucesso\n");
+            resposta.criado=1;
+        }else if(verifica==1){
+            strcpy(resposta.responde,"Cliente ja existe pelo que nao foi criado\n");
+            resposta.criado=0;
+        }else if(verifica==2){
+            strcpy(resposta.responde,"Criacao de cliente deu erro\n");
+            resposta.criado=0;
+        }else{
+            strcpy(resposta.responde,"Cliente nao criado\nMaximo de clientes atingido\n");
+            resposta.criado=0;
+        }
+    }else{
+        if(strncmp(pergunta.comando,"agendar ",8)==0){
+
+        }
+        if(strncmp(pergunta.comando,"consultar ",10)==0){
+            
+        }
+    }
+
+
+    /*if(strcmp(comando,"agendar")==0){ //falta apanhar hora,local, distancia
+            
+        }else if(strcmp(comando,"consultar")==0){
+
+        }else if(strcmp(comando,"cancelar")==0){//falta apanhar id
+
+        }else if(strcmp(comando,"entrar")==0){//falta apanhar destino
+        
+        }else if(strcmp(comando,"sair")==0){
+
+        }else if(strcmp(comando,"terminar")==0){
+            break;
+
+        }else{
+            printf("Comando errado\n");
+        }
+            */
+    
+}
+
+void *atendeCliente(void *arg){
+    ServidorData *sd = (ServidorData *) arg;
+    pergunta_t pergunta;
+    int res;
     char c_fifo_fname[50];
-    int c_fifo_fd;
 
     fprintf(stderr, "[Thread] a iniciar escuta do FIFO\n");
 
-    s_fifo_fd = open(CONTROLADOR_FIFO, O_RDWR);
-    if(s_fifo_fd == -1){
-        perror("[Thread] Erro ao abriar FIFO\n");
+    sd->cFifo = open(CONTROLADOR_FIFO, O_RDWR);
+    if(sd->cFifo == -1){
+        perror("[Thread] Erro ao abrir FIFO\n");
         pthread_exit(NULL);
     }
 
-    while(1){
-        res = read(s_fifo_fd, &perg, sizeof(perg));
+    while(sd->ligado){  //QUANDO DESLIGAR SAI DO WHILE
+        res = read(sd->cFifo, &pergunta, sizeof(pergunta));
 
-        if(res > 0){
-            (res < sizeof(perg)){
-                fprintf(stderr, "\nLongin recebido: %s", perg.username);
+        if(res!=sizeof(pergunta)){
+            fprintf(stderr,"Erro na rececao de dados/n");
+        }
+        else{
+            AuxiliaP *nova_tarefa=malloc(sizeof(AuxiliaP));
+            
+            nova_tarefa->sd=sd;
+            nova_tarefa->pergunta=pergunta;
 
-                pthread_mutex_lock(&trinco); // bloqueia 
+            pthread_t tPedido;
+            if(pthread_create(&tPedido, NULL, &trataPedido, nova_tarefa) != 0){
+                perror("[ERRO] Não foi possivel criar Pedido");
+                free(nova_tarefa);
+            }
 
-                x = verificaUser(perg.username, users);
+        }
+
+        
+        /*if(res > 0){
+            if(res < sizeof(pergunta)){
+                
+                fprintf(stderr, "\nLongin recebido: %s", pergunta.username);
+
+                pthread_mutex_lock(&sd->lock); // bloqueia 
+
+                x = verificaUser(pergunta.username, sd->users);
 
                 if(x == 1){
                     resp.confirmUser = true;
-                    sprintf(c_fifo_fname, CLIENTE_FIFO, perg.pid_cliente);
+                    sprintf(c_fifo_fname, CLIENTE_FIFO, pergunta.pid_cliente);
                 }
 
-                pthread_mutex_unlock(&trinco); // desbloqueia
+                pthread_mutex_unlock(&sd->lock); // desbloqueia
             }
-        }
+        }*/
     }
-}*/
+}
 
 int main(){
-    ControladorData cd;
+    //ServidorData sd;
     
     char comando[50];
     TDados tCliente;
@@ -152,7 +241,7 @@ int main(){
     char c_fifo_fname[50];
     int aux1;
 
-    preencheVeiculos(carros);
+    preencheVeiculos(sd.carros);
 
     printf("\nControlador Iniciado\n");
     if (signal(SIGINT,trataSig) == SIG_ERR) {
@@ -172,22 +261,26 @@ int main(){
     /* operações read/write (neste caso APENAS READ)*/
     /* continuam bloqueantes (mais fácil de gerir)*/
 
-    s_fifo_fd = open(CONTROLADOR_FIFO, O_RDWR | O_NONBLOCK);
+    sd.cFifo = open(CONTROLADOR_FIFO, O_RDWR);
     /* bloqueante */
-    if (s_fifo_fd == -1) {
+    if (sd.cFifo == -1) {
         perror("\nErro ao abrir o FIFO do servidor (RDWR/blocking)\n");
         exit(EXIT_FAILURE);
     }
     int flags = fcntl(STDIN_FILENO, F_GETFL, 0);
-    fcntl(STDIN_FILENO, F_SETFL, flags | O_NONBLOCK);
+    fcntl(STDIN_FILENO, F_SETFL, flags);
 
     printf("\nControlador aberto...\n");
+    
+    if(pthread_create(&sd.tRecebe, NULL, &atendeCliente, &sd) != 0){
+        exit(EXIT_FAILURE);
+    }
 
     //fprintf(stderr,"\nFIFO aberto para READ (+WRITE) bloqueante\n");
     
     /* ciclo principal: read pedido -> write resposta -> repete */
     while (1) {
-        res = read(s_fifo_fd, & perg, sizeof(perg));
+        res = read(sd.cFifo, & perg, sizeof(perg));
         if(res > 0){
             if(res < sizeof(perg)){
                 fprintf(stderr, "\nRecebida pergunta incompleta [bytes lidos: %d]\n", res);
@@ -195,16 +288,16 @@ int main(){
                 fprintf(stderr, "\nRecebido [%s]", perg.username);
 
                 strcpy(resp.palavra, "DESCONHECIDO\n"); /* caso n encontre */
-                aux1 = verificaUser(perg.username, users);
+                aux1 = verificaUser(perg.username, sd.users);
                 sprintf(c_fifo_fname, CLIENTE_FIFO, perg.pid_cliente);
                 if(aux1 == 1){
                     resp.confirmUser = true;
                     for(int i=0;i<NUTILIZADORES;i++){
-                        if(users[i]==NULL){
+                        if(sd.users[i]==NULL){
                             continue;
                         }
-                        if(strcmp(users[i]->nome,perg.username)==0){
-                            strcpy(users[i]->fName,c_fifo_fname);
+                        if(strcmp(sd.users[i]->nome,perg.username)==0){
+                            strcpy(sd.users[i]->fName,c_fifo_fname);
                         } 
                     }
                 }else {
@@ -250,13 +343,13 @@ int main(){
             comando[n-1] = '\0';
             if(strcmp(comando, "listar") == 0){
                 printf("------listar-------\n");
-                lista_users(users);
+                lista_users(sd.users);
                 printf("-------------------\n");
 
             }else if(strcmp(comando,"utiliz")==0){
 
             }else if(strcmp(comando,"frota")==0){
-                listaCarros(carros);
+                listaCarros(sd.carros);
             }else if(strcmp(comando,"cancelar")==0){//falta apanhar o id
             
             }else if(strcmp(comando,"km")==0){
@@ -274,7 +367,7 @@ int main(){
     /* fim do ciclo principal do servidor */
     /* em principio não chega a este ponto - sai via SIGINT */
     printf("\nVou fechar!!\n");
-    close(s_fifo_fd);
+    close(sd.cFifo);
     unlink(CONTROLADOR_FIFO);
 
 

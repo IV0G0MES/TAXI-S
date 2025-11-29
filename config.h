@@ -27,28 +27,31 @@
 /*Numero maximo de veiculos*/
 #define NVEICULOS 10
 
+
+
 /* estrutura da mensagem correspondente a um pedido cliente -> controlador*/
 typedef struct {
     pid_t pid_cliente;
     char username[TAM_MAX];
+    char tipo_pergunta[25];
+    char comando[25];
 } pergunta_t;
 
 /* estrutura da mensagem correspondente a uma resposta controlador -> cliente */
 typedef struct {
-    bool confirmUser;
-    char palavra[TAM_MAX];
+    char responde[TAM_MAX];
+    bool criado;
 } resposta_t;
 
-typedef struct{
+typedef struct Agendamento{
     int hora;
     char local[50];
     int distancia;
-    int *prox;
+    struct Agendamento *prox;
 } Agendamento;
 
 /* estrutura clientes*/
 typedef struct  {
-    int id;//preenchido pelo servidor para conseguir identificar clientes
     char nome[50];
     Agendamento *agenda;
     char fName[50];
@@ -73,5 +76,11 @@ typedef struct {
     Veiculo *carros[NVEICULOS];
     int cFifo;
     bool ligado;
-    pthread_mutex_t trinco;
-} ControladorData;
+    pthread_mutex_t lock;
+    pthread_t tRecebe;
+} ServidorData;
+
+typedef struct{
+    ServidorData *sd;
+    pergunta_t pergunta;
+}AuxiliaP;
