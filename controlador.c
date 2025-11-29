@@ -14,26 +14,29 @@ void trataSig(int i) {
     /* para terminar o processo */
 }
 
-void preencheVeiculos(Veiculo **a){
-    Veiculo *ptr;
+void preencheVeiculos(ServidorData *sd){
     for(int i=0;i<NVEICULOS; i++){
-        ptr=(Veiculo*)malloc(sizeof(Veiculo));
-            if(ptr== NULL){
+        Veiculo *novo_veiculo=(Veiculo*)malloc(sizeof(Veiculo));
+            if(novo_veiculo== NULL){
                 printf("Nao foi possivel criar o veiculo");
                 exit(1);
             }
-            a[i]=ptr;
-        a[i]->id=i;
-        a[i]->ocupado=false;
+            novo_veiculo->id=i;
+            novo_veiculo->ocupado=false;
+            novo_veiculo->distancia=0;
+            strcpy(novo_veiculo,"");
+            sd->carros[i]=novo_veiculo;
     }
     printf("Vetor veiculos preenchido");
 }
 
-void listaCarros(Veiculo **a){
+void listaCarros(ServidorData *sd){
+    pthread_mutex_lock(&sd->lock);
     printf("\n----- Frota-----\n");
     for(int i=0; i<NVEICULOS; i++){
-        printf("Veiculo %d:\nId: %d\nOcupado: %d\nLocal: %s\nDistancia: %d\n",i+1 ,a[i]->id,a[i]->ocupado,a[i]->local,a[i]->distancia);
+        printf("Veiculo %d:\nId: %d\nOcupado: %d\nLocal: %s\nDistancia: %d\n",i+1 ,sd->carros[i]->id,sd->carros[i]->ocupado,sd->carros[i]->local,sd->carros[i]->distancia);
     }
+    pthread_mutex_unlock(&sd->lock);
 }
 
 int verificaUser(char *nome,Cliente **a){
@@ -78,7 +81,7 @@ void lista_users(Cliente **users){
 void remove_users(Cliente **users,char nome){
     for(int i=0;i<NUTILIZADORES;i++){
         if(users[i]!=NULL){
-            if(users[i]->nome==nome){
+            if(strcmp(users[i]->nome,nome)==0){
                 users[i]=NULL;
                 break;
             }
@@ -93,10 +96,8 @@ int agenda(Cliente **clientes, char nome,int hora,char local[], int distancia){
     nova_agenda->distancia=distancia;
     nova_agenda->prox=NULL;
 
+    
     for(int i=0;i<NUTILIZADORES;i++){
-        if(clientes[i]!=NULL && strcmp(clientes[i]->nome,nome)){
-            
-        }
         if(clientes[i]==NULL){
             continue;
         }
@@ -111,7 +112,6 @@ int agenda(Cliente **clientes, char nome,int hora,char local[], int distancia){
                 }
                 agendamento_atual->prox=nova_agenda;
             }
-
             return 0;
         }
     }
@@ -160,15 +160,15 @@ void trataPedido(void *arg){
                 strcpy(resposta.responde,"Sintaxe do comando agendar incorreta\n");
             }
 
-        }else if(strncmp(pergunta.comando,"consultar ",10)){
+        }else if(strcmp(pergunta.comando,"consultar")==0){
 
-        }else if(strncmp(pergunta.comando,"cancelar ",00)){
+        }else if(strncmp(pergunta.comando,"cancelar ",9)){
 
-        }else if(strncmp(pergunta.comando,"entrar ",10)){
+        }else if(strncmp(pergunta.comando,"entrar ",7)){
 
-        }else if(strncmp(pergunta.comando,"sair ",10)){
+        }else if(strcmp(pergunta.comando,"sair")==0){
 
-        }else if(strncmp(pergunta.comando,"terminar ",10)){
+        }else if(strcmp(pergunta.comando,"terminar")==0){
 
         }else{
             strcpy(resposta.responde,"Comando Errado\n");
@@ -193,6 +193,8 @@ void trataPedido(void *arg){
             printf("Comando errado\n");
         }
             */
+
+
 
         //FALTA PASSO 3- ENVIAR RESPOSTA PARA O CLIENTE
     
@@ -313,7 +315,7 @@ int main(){
 
         }else if(strcmp(comando,"frota")==0){
             listaCarros(sd.carros);
-        }else if(strcmp(comando,"cancelar")==0){//falta apanhar o id
+        }else if(strncmp(comando,"cancelar ",9)){//falta apanhar o id
             
         }else if(strcmp(comando,"km")==0){
 

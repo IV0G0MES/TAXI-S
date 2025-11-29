@@ -102,7 +102,7 @@ int main(int argc, char *argv[]){
         strcpy(perg.comando,comando);
         write(s_fifo_fd,& perg,sizeof(perg));
         read(c_fifo_fd, &resp, sizeof(resp));
-        printf("%s",resp.responde);
+        printf("%s\n",resp.responde);
     }
     printf("\nVou fechar!!\n");
     close(c_fifo_fd);
