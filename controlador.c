@@ -39,10 +39,10 @@ void listaCarros(ServidorData *sd){
     pthread_mutex_unlock(&sd->lock);
 }
 
-int verificaUser(char *nome,Cliente **a){
+int verificaUser(ServidorData *sd,char *nome,char *nomeFifo){ /*ALTERAR PARA SERVIDORDATA *SD */
     for(int i=0;i<NUTILIZADORES;i++){
-        if(a[i]!=NULL){
-            if(strcmp(nome,a[i]->nome)==0){
+        if(sd->users[i]!=NULL){
+            if(strcmp(sd->users[i]->nome,nome)==0){
                 printf("Utilizador ja existente\n");
                 return 1;
             }
@@ -50,14 +50,16 @@ int verificaUser(char *nome,Cliente **a){
     }
     Cliente *ptr;
     for(int i=0; i<NUTILIZADORES;i++){
-        if(a[i]==NULL){
+        if(sd->users[i]==NULL){
             ptr=(Cliente*)malloc(sizeof(Cliente));
             if(ptr== NULL){
                 printf("Nao foi possivel criar o cliente");
                 return 2;
             }
-            a[i]=ptr;
-            strcpy(a[i]->nome,nome);
+            strcpy(ptr->nome,nome);
+            ptr->agenda=NULL;
+            strcpy(ptr->fName,nomeFifo);
+            sd->users[i]=ptr;
             printf("Cliente criado com sucesso\n");
             return 0;
         }
@@ -95,14 +97,18 @@ int agenda(ServidorData *sd, char* nome,int hora,char *local, int distancia){
     strcpy(nova_agenda->local,local);
     nova_agenda->distancia=distancia;
     nova_agenda->prox=NULL;
-
+    printf("Estou dentro da agenda1\n");
+    fflush(stdout);
     
     for(int i=0;i<NUTILIZADORES;i++){
-        if(sd->users[i]==NULL){
-            continue;
-        }
-        if(strcmp(sd->users[i]->nome,nome)==0){
+        printf("Estou dentro da agenda2\n");
+                fflush(stdout);
+        if(sd->users[i]!=NULL && strcmp(sd->users[i]->nome,nome)==0){
+            printf("Estou dentro da agenda3\n");
+                fflush(stdout);
             if(sd->users[i]->agenda==NULL){
+                printf("Estou dentro da agenda4\n");
+                fflush(stdout);
                 sd->users[i]->agenda=nova_agenda;
             }
             else{
@@ -132,7 +138,7 @@ void *trataPedido(void *arg){
 
     if(strcmp(pergunta.tipo_pergunta,"LOGIN")==0){
         int verifica;
-        verifica=verificaUser(pergunta.username,sd->users);
+        verifica=verificaUser(sd,pergunta.username,ClienteFifo);
         if(verifica==0){
             strcpy(resposta.responde,"Cliente criado com sucesso\n");
             resposta.criado=1;
