@@ -22,7 +22,15 @@ int main(int argc, char *argv[]){
     resposta_t resp;/* mensagem do "tipo" resposta */
     int read_res;
     char comando[50];
-    
+    fflush(stdout);
+    if(argc!=2){
+        printf("Precisa de indicar um nome de utilizador!!!\n");
+        close(c_fifo_fd);
+        close(s_fifo_fd);
+        unlink(c_fifo_fname);
+        exit(EXIT_FAILURE);
+    }
+
     if (signal(SIGINT,trataSig) == SIG_ERR) {
         perror("Nao foi possivel configurar o sinal SIGINT\n");
         exit(EXIT_FAILURE);
@@ -58,35 +66,26 @@ int main(int argc, char *argv[]){
     fprintf(stderr, "\nFIFO do cliente aberto para READ (+Write) BLOCK\n");
 
     //Verificação utilizador
-    printf("%d", argc);
-    if(argc!=2){
-        printf("Precisa de indicar um nome de utilizador!!!\n");
-        close(c_fifo_fd);
-        close(s_fifo_fd);
-        unlink(c_fifo_fname);
-        exit(EXIT_FAILURE);
-    }else{
-        perg.pid_cliente=getpid();
-        strcpy(perg.username,argv[1]);
-        strcpy(perg.tipo_pergunta,"LOGIN");
-        write(s_fifo_fd,& perg,sizeof(perg));
-        read_res=read (c_fifo_fd, &resp, sizeof(resp));
+    perg.pid_cliente=getpid();
+    strcpy(perg.username,argv[1]);
+    strcpy(perg.tipo_pergunta,"LOGIN");
+    write(s_fifo_fd,& perg,sizeof(perg));
+    read_res=read (c_fifo_fd, &resp, sizeof(resp));
         
-        if(read_res==sizeof(resp)){
-            printf("%s",resp.responde);
-            if(resp.criado==0){
-                close(c_fifo_fd);
-                close(s_fifo_fd);
-                unlink(c_fifo_fname);
-                exit(EXIT_FAILURE);
-            }
-        }else{
-            printf("Erro de comunicacao com o servidor");
+    if(read_res==sizeof(resp)){
+        printf("%s",resp.responde);
+        if(resp.criado==0){
             close(c_fifo_fd);
             close(s_fifo_fd);
             unlink(c_fifo_fname);
             exit(EXIT_FAILURE);
         }
+    }else{
+        printf("Erro de comunicacao com o servidor");
+        close(c_fifo_fd);
+        close(s_fifo_fd);
+        unlink(c_fifo_fname);
+        exit(EXIT_FAILURE);
     }
     
     

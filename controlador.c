@@ -24,7 +24,7 @@ void preencheVeiculos(ServidorData *sd){
             novo_veiculo->id=i;
             novo_veiculo->ocupado=false;
             novo_veiculo->distancia=0;
-            strcpy(novo_veiculo,"");
+            strcpy(novo_veiculo->local,"");
             sd->carros[i]=novo_veiculo;
     }
     printf("Vetor veiculos preenchido");
@@ -67,10 +67,10 @@ int verificaUser(char *nome,Cliente **a){
     return 3;
 }
 
-void lista_users(Cliente **users){
+void lista_users(ServidorData *sd){
     for (int i=0;i<30;i++){
-        if(users[i]!=NULL){
-            printf("Utilizador N %d\nNome: %s\nNome do fifo: %s\n",i,users[i]->nome,users[i]->fName);
+        if(sd->users[i]!=NULL){
+            printf("Utilizador N %d\nNome: %s\nNome do fifo: %s\n",i,sd->users[i]->nome,sd->users[i]->fName);
         }
         else{
             break;
@@ -78,18 +78,18 @@ void lista_users(Cliente **users){
     }
 }
 
-void remove_users(Cliente **users,char nome){
+void remove_users(ServidorData *sd,char* nome){
     for(int i=0;i<NUTILIZADORES;i++){
-        if(users[i]!=NULL){
-            if(strcmp(users[i]->nome,nome)==0){
-                users[i]=NULL;
+        if(sd->users[i]!=NULL){
+            if(strcmp(sd->users[i]->nome,nome)==0){
+                sd->users[i]=NULL;
                 break;
             }
         }
     }
 }
 
-int agenda(Cliente **clientes, char nome,int hora,char local[], int distancia){
+int agenda(ServidorData *sd, char* nome,int hora,char *local, int distancia){
     Agendamento *nova_agenda=malloc(sizeof(Agendamento));
     nova_agenda->hora=hora;
     strcpy(nova_agenda->local,local);
@@ -98,15 +98,15 @@ int agenda(Cliente **clientes, char nome,int hora,char local[], int distancia){
 
     
     for(int i=0;i<NUTILIZADORES;i++){
-        if(clientes[i]==NULL){
+        if(sd->users[i]==NULL){
             continue;
         }
-        if(strcmp(clientes[i]->nome,nome)==0){
-            if(clientes[i]->agenda==NULL){
-                clientes[i]->agenda=nova_agenda;
+        if(strcmp(sd->users[i]->nome,nome)==0){
+            if(sd->users[i]->agenda==NULL){
+                sd->users[i]->agenda=nova_agenda;
             }
             else{
-                Agendamento *agendamento_atual=clientes[i]->agenda;
+                Agendamento *agendamento_atual=sd->users[i]->agenda;
                 while (agendamento_atual->prox!=NULL){
                     agendamento_atual=agendamento_atual->prox;
                 }
@@ -119,13 +119,14 @@ int agenda(Cliente **clientes, char nome,int hora,char local[], int distancia){
     return 1;
 }
 
-void trataPedido(void *arg){
+void *trataPedido(void *arg){
     AuxiliaP *aux=(AuxiliaP *) arg;
     ServidorData *sd=aux->sd;
     pergunta_t pergunta=aux->pergunta; 
     free(aux);
 
     resposta_t resposta;
+    int cFifoD;
     char ClienteFifo[50];
     sprintf(ClienteFifo,CLIENTE_FIFO,pergunta.pid_cliente);
 
@@ -151,7 +152,11 @@ void trataPedido(void *arg){
             char local[50];
             int distancia;
             if(sscanf(pergunta.comando+8,"%d %s %d",&hora,local,&distancia)==3){
-                if(agenda(sd->users,pergunta.username,hora,local,distancia)==0){
+                printf("Hora: %d\nLocal: %s\nDistancia: %d\n",hora,local,distancia);
+
+                fflush(stdout);
+
+                if(agenda(sd,pergunta.username,hora,local,distancia)==0){
                     strcpy(resposta.responde,"Agendamento efetuado com sucesso\n");
                 }else{
                     strcpy(resposta.responde,"Agendamento nao efetuado, erro no servidor\n");
@@ -161,7 +166,7 @@ void trataPedido(void *arg){
             }
 
         }else if(strcmp(pergunta.comando,"consultar")==0){
-
+            printf("Estou na thread\n");
         }else if(strncmp(pergunta.comando,"cancelar ",9)){
 
         }else if(strncmp(pergunta.comando,"entrar ",7)){
@@ -197,6 +202,8 @@ void trataPedido(void *arg){
 
 
         //FALTA PASSO 3- ENVIAR RESPOSTA PARA O CLIENTE
+        cFifoD=open(ClienteFifo,O_WRONLY);
+        write(cFifoD,&resposta,sizeof(resposta));
     
 }
 
@@ -204,7 +211,6 @@ void *atendeCliente(void *arg){
     ServidorData *sd = (ServidorData *) arg;
     pergunta_t pergunta;
     int res;
-    char c_fifo_fname[50];
 
     fprintf(stderr, "[Thread] a iniciar escuta do FIFO\n");
 
@@ -227,7 +233,7 @@ void *atendeCliente(void *arg){
             nova_tarefa->pergunta=pergunta;
 
             pthread_t tPedido;
-            if(pthread_create(&tPedido, NULL, &trataPedido, nova_tarefa) != 0){
+            if(pthread_create(&tPedido, NULL, trataPedido, nova_tarefa) != 0){
                 perror("[ERRO] Não foi possivel criar Pedido");
                 free(nova_tarefa);
             }
@@ -259,14 +265,11 @@ int main(){
     //ServidorData sd;
     
     char comando[50];
-    TDados tCliente;
-    pergunta_t perg;/* mensagem do "tipo" pergunta */
-    resposta_t resp;/* mensagem do "tipo" resposta */
-    int res,resT;
-    char c_fifo_fname[50];
-    int aux1;
+    int res;
 
-    preencheVeiculos(sd.carros);
+    sd.ligado=true;
+
+    preencheVeiculos(&sd);
 
     printf("\nControlador Iniciado\n");
     if (signal(SIGINT,trataSig) == SIG_ERR) {
@@ -306,22 +309,25 @@ int main(){
         if(fgets(comando,sizeof(comando),stdin)==NULL)
             break;
         comando[strcspn(comando, "\n")] = '\0';
+        printf("\n.%s.\n",comando);
         if(strcmp(comando, "listar") == 0){
             printf("------listar-------\n");
-            lista_users(sd.users);
+            lista_users(&sd);
             printf("-------------------\n");
 
         }else if(strcmp(comando,"utiliz")==0){
-
+            printf("Estou no utiliz\n");
         }else if(strcmp(comando,"frota")==0){
-            listaCarros(sd.carros);
-        }else if(strncmp(comando,"cancelar ",9)){//falta apanhar o id
-            
+            listaCarros(&sd);
+        }else if(strncmp(comando,"cancelar ",9)==0){//falta apanhar o id
+            printf("Estou no cancelar\n");
         }else if(strcmp(comando,"km")==0){
-
+            printf("Estou no km\n");
         }else if(strcmp(comando,"hora")==0){
-
+            printf("Estou na hora\n");
         }else if(strcmp(comando,"terminar")==0){
+            sd.ligado=false;
+            printf("Estou no sair\n");
            break;
         }else {
             printf("Comando errado\n");
@@ -332,6 +338,7 @@ int main(){
     /* fim do ciclo principal do servidor */
     /* em principio não chega a este ponto - sai via SIGINT */
     printf("\nVou fechar!!\n");
+    
     close(sd.cFifo);
     unlink(CONTROLADOR_FIFO);
     return 0;
