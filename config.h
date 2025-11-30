@@ -19,7 +19,7 @@
 #define CLIENTE_FIFO "./fifos/cli_%d_fifo"
 
 /* tamanho máximo de cada palavra */
-#define TAM_MAX 50
+#define TAM_MAX 100
 
 /*Numero máximo de utilizadores*/
 #define NUTILIZADORES 30
@@ -44,6 +44,7 @@ typedef struct {
 } resposta_t;
 
 typedef struct Agendamento{
+    int id;
     int hora;
     char local[50];
     int distancia;
@@ -53,6 +54,7 @@ typedef struct Agendamento{
 /* estrutura clientes*/
 typedef struct  {
     char nome[50];
+    int proxIdAgendamento;
     Agendamento *agenda;
     char fName[50];
 } Cliente;
@@ -64,12 +66,6 @@ typedef struct{
     char local[50];
     int distancia;
 } Veiculo;
-
-//Threads
-typedef struct {
-    pthread_t tid;
-    void * retval;
-} TDados;
 
 typedef struct {
     Cliente *users[NUTILIZADORES];

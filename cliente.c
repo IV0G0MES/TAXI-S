@@ -100,8 +100,23 @@ int main(int argc, char *argv[]){
         strcpy(perg.tipo_pergunta,"COMANDO");
         strcpy(perg.comando,comando);
         write(s_fifo_fd,& perg,sizeof(perg));
-        read(c_fifo_fd, &resp, sizeof(resp));
-        printf("%s\n",resp.responde);
+        if(strcmp(comando,"consultar")==0){
+            while(1){
+                read_res=read(c_fifo_fd, &resp, sizeof(resp));
+                if(read_res!=sizeof(resp)){
+                    fprintf(stderr,"Erro na rececao de dados/n");
+                    break;
+                }
+                if(strcmp(resp.responde,"FIM")==0){
+                    break;
+                }
+                printf("%s\n",resp.responde);
+            }
+        }
+        else{
+            read(c_fifo_fd, &resp, sizeof(resp));
+            printf("%s\n",resp.responde);
+        }
     }
     printf("\nVou fechar!!\n");
     close(c_fifo_fd);

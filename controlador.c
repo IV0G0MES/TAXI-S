@@ -1,17 +1,10 @@
 #define _GNU_SOURCE
 #include "config.h"
 
-ServidorData sd;
-int c_fifo_fd;       /* descritores de ficheiros (pipes) */
 
-//pthread_mutex_lock lock = PTHREAD_MUTEX_INITIALIZER;
-/* esta função vai atender o sinal SIGINT para terminar o servidor */
 void trataSig(int i) {
-    fprintf(stderr, "\nControlador a terminar (interrompido via teclado)\n\n");
-    close(sd.cFifo);
-    unlink(CONTROLADOR_FIFO);
-    exit(EXIT_SUCCESS);
-    /* para terminar o processo */
+    printf("Para terminar o Controlador utilize o comando terminar\n");
+    fflush(stdout);
 }
 
 void preencheVeiculos(ServidorData *sd){
@@ -30,6 +23,12 @@ void preencheVeiculos(ServidorData *sd){
     printf("Vetor veiculos preenchido");
 }
 
+void preencheClientes(ServidorData *sd){
+    for(int i=0;i<NUTILIZADORES; i++){
+        sd->users[i]=NULL;
+    }
+}
+
 void listaCarros(ServidorData *sd){
     pthread_mutex_lock(&sd->lock);
     printf("\n----- Frota-----\n");
@@ -39,11 +38,13 @@ void listaCarros(ServidorData *sd){
     pthread_mutex_unlock(&sd->lock);
 }
 
-int verificaUser(ServidorData *sd,char *nome,char *nomeFifo){ /*ALTERAR PARA SERVIDORDATA *SD */
+int verificaUser(ServidorData *sd,char *nome,char *nomeFifo){
+    pthread_mutex_lock(&sd->lock);
     for(int i=0;i<NUTILIZADORES;i++){
         if(sd->users[i]!=NULL){
             if(strcmp(sd->users[i]->nome,nome)==0){
                 printf("Utilizador ja existente\n");
+                pthread_mutex_unlock(&sd->lock);
                 return 1;
             }
         }
@@ -54,33 +55,81 @@ int verificaUser(ServidorData *sd,char *nome,char *nomeFifo){ /*ALTERAR PARA SER
             ptr=(Cliente*)malloc(sizeof(Cliente));
             if(ptr== NULL){
                 printf("Nao foi possivel criar o cliente");
+                pthread_mutex_unlock(&sd->lock);
                 return 2;
             }
+            ptr->proxIdAgendamento=0;
             strcpy(ptr->nome,nome);
             ptr->agenda=NULL;
             strcpy(ptr->fName,nomeFifo);
             sd->users[i]=ptr;
             printf("Cliente criado com sucesso\n");
+            pthread_mutex_unlock(&sd->lock);
             return 0;
         }
     }
-
     printf("Nao ha espaco para mais clientes\n");
+    pthread_mutex_unlock(&sd->lock);
     return 3;
 }
 
 void lista_users(ServidorData *sd){
-    for (int i=0;i<30;i++){
+    pthread_mutex_lock(&sd->lock);
+    for (int i=0;i<NUTILIZADORES;i++){
         if(sd->users[i]!=NULL){
             printf("Utilizador N %d\nNome: %s\nNome do fifo: %s\n",i,sd->users[i]->nome,sd->users[i]->fName);
         }
-        else{
-            break;
+    }
+    pthread_mutex_unlock(&sd->lock);
+}
+
+void lista_agenda_admin(ServidorData *sd){
+    pthread_mutex_lock(&sd->lock);
+
+    for(int i=0;i<NUTILIZADORES;i++){
+        if(sd->users[i]!=NULL){
+            if(sd->users[i]->agenda!=NULL){
+                printf("Nome do Utilizador: %s\n",sd->users[i]->nome);
+                Agendamento *agenda_cliente=sd->users[i]->agenda;
+                while (agenda_cliente!=NULL){
+                    printf("Id Agendamento: %d\nHora: %d\nLocal: %s\nDistancia: %d\n\n",agenda_cliente->id,agenda_cliente->hora,agenda_cliente->local,agenda_cliente->distancia);
+                    agenda_cliente=agenda_cliente->prox;
+                }
+            }
+            fflush(stdout);
         }
     }
+    pthread_mutex_unlock(&sd->lock);
+}
+
+void lista_agenda(ServidorData *sd,char *nome,int cFifoD){
+    resposta_t resposta;
+    pthread_mutex_lock(&sd->lock);
+    for(int i=0;i<NUTILIZADORES;i++){
+        if(sd->users[i]!=NULL && strcmp(sd->users[i]->nome,nome)==0){
+            if(sd->users[i]->agenda!=NULL){
+                Agendamento *agenda_cliente=sd->users[i]->agenda;
+                while (agenda_cliente!=NULL){
+                    snprintf(resposta.responde,sizeof(resposta.responde),"Id Agendamento: %d\nHora: %d\nLocal: %s\nDistancia: %d\n\n",agenda_cliente->id,agenda_cliente->hora,agenda_cliente->local,agenda_cliente->distancia);
+                    write(cFifoD,&resposta,sizeof(resposta));
+                    agenda_cliente=agenda_cliente->prox;
+                }
+            }else{
+                strcpy(resposta.responde,"O utilizador nao tem nada agendado\n");
+            }
+            strcpy(resposta.responde,"FIM");
+            write(cFifoD,&resposta,sizeof(resposta));
+            pthread_mutex_unlock(&sd->lock);
+            return;
+        }
+    }
+    strcpy(resposta.responde,"Utilizador nao encontrado\n");
+    write(cFifoD,&resposta,sizeof(resposta));
+    pthread_mutex_unlock(&sd->lock);
 }
 
 void remove_users(ServidorData *sd,char* nome){
+    pthread_mutex_lock(&sd->lock);
     for(int i=0;i<NUTILIZADORES;i++){
         if(sd->users[i]!=NULL){
             if(strcmp(sd->users[i]->nome,nome)==0){
@@ -89,6 +138,7 @@ void remove_users(ServidorData *sd,char* nome){
             }
         }
     }
+    pthread_mutex_unlock(&sd->lock);
 }
 
 int agenda(ServidorData *sd, char* nome,int hora,char *local, int distancia){
@@ -97,18 +147,12 @@ int agenda(ServidorData *sd, char* nome,int hora,char *local, int distancia){
     strcpy(nova_agenda->local,local);
     nova_agenda->distancia=distancia;
     nova_agenda->prox=NULL;
-    printf("Estou dentro da agenda1\n");
-    fflush(stdout);
     
     for(int i=0;i<NUTILIZADORES;i++){
-        printf("Estou dentro da agenda2\n");
-                fflush(stdout);
         if(sd->users[i]!=NULL && strcmp(sd->users[i]->nome,nome)==0){
-            printf("Estou dentro da agenda3\n");
-                fflush(stdout);
+            nova_agenda->id=sd->users[i]->proxIdAgendamento;
+            sd->users[i]->proxIdAgendamento++;
             if(sd->users[i]->agenda==NULL){
-                printf("Estou dentro da agenda4\n");
-                fflush(stdout);
                 sd->users[i]->agenda=nova_agenda;
             }
             else{
@@ -121,10 +165,42 @@ int agenda(ServidorData *sd, char* nome,int hora,char *local, int distancia){
             return 0;
         }
     }
+    free(nova_agenda);
     printf("Cliente nao encontrado");
     return 1;
 }
 
+int cancelar(ServidorData *sd,char*nome,int id){
+    pthread_mutex_lock(&sd->lock);
+    for(int i=0;i<NUTILIZADORES;i++){
+        if(sd->users[i]!=NULL && strcmp(sd->users[i]->nome,nome)==0){
+            if(id==0){
+                sd->users[i]->agenda=NULL;
+            }else{
+                Agendamento *atual = sd->users[i]->agenda;
+                Agendamento *anterior = NULL;
+                while (atual!=NULL){
+                    if(atual->id==id){
+                        if(atual->prox==NULL){
+                            sd->users[i]->agenda=NULL;
+                        }else{
+                            anterior->prox=atual->prox;
+                        }
+                        free(atual);
+                        pthread_mutex_unlock(&sd->lock);
+                        return 0;
+                    }
+                    anterior=atual;
+                    atual=atual->prox;
+                }
+                pthread_mutex_unlock(&sd->lock);
+                return 1;
+            }
+        }
+    }
+    pthread_mutex_unlock(&sd->lock);
+    return 2;
+}
 void *trataPedido(void *arg){
     AuxiliaP *aux=(AuxiliaP *) arg;
     ServidorData *sd=aux->sd;
@@ -158,10 +234,6 @@ void *trataPedido(void *arg){
             char local[50];
             int distancia;
             if(sscanf(pergunta.comando+8,"%d %s %d",&hora,local,&distancia)==3){
-                printf("Hora: %d\nLocal: %s\nDistancia: %d\n",hora,local,distancia);
-
-                fflush(stdout);
-
                 if(agenda(sd,pergunta.username,hora,local,distancia)==0){
                     strcpy(resposta.responde,"Agendamento efetuado com sucesso\n");
                 }else{
@@ -172,10 +244,20 @@ void *trataPedido(void *arg){
             }
 
         }else if(strcmp(pergunta.comando,"consultar")==0){
-            printf("Estou na thread\n");
-        }else if(strncmp(pergunta.comando,"cancelar ",9)){
-
-        }else if(strncmp(pergunta.comando,"entrar ",7)){
+            cFifoD=open(ClienteFifo,O_WRONLY);
+            if(cFifoD!=-1){
+                lista_agenda(sd,pergunta.username,cFifoD);
+                close(cFifoD);
+            }
+            return NULL;
+        }else if(strncmp(pergunta.comando,"cancelar ",9)==0){//falta apanhar id
+            int id;
+            if(sscanf(pergunta.comando+9,"%d",&id)==1){
+                
+            }else{
+                strcpy(resposta.responde,"Sitaxe do comando cancelar incorreta\n");
+            }
+        }else if(strncmp(pergunta.comando,"entrar ",7)==0){//falta apanhar destino
 
         }else if(strcmp(pergunta.comando,"sair")==0){
 
@@ -186,31 +268,12 @@ void *trataPedido(void *arg){
         }
     }
 
-
-    /*if(strcmp(comando,"agendar")==0){ //falta apanhar hora,local, distancia
-            
-        }else if(strcmp(comando,"consultar")==0){
-
-        }else if(strcmp(comando,"cancelar")==0){//falta apanhar id
-
-        }else if(strcmp(comando,"entrar")==0){//falta apanhar destino
-        
-        }else if(strcmp(comando,"sair")==0){
-
-        }else if(strcmp(comando,"terminar")==0){
-            break;
-
-        }else{
-            printf("Comando errado\n");
-        }
-            */
-
-
-
-        //FALTA PASSO 3- ENVIAR RESPOSTA PARA O CLIENTE
-        cFifoD=open(ClienteFifo,O_WRONLY);
+    cFifoD=open(ClienteFifo,O_WRONLY);
+    if(cFifoD!=-1){
         write(cFifoD,&resposta,sizeof(resposta));
-    
+        close(cFifoD);
+    }
+    return NULL;
 }
 
 void *atendeCliente(void *arg){
@@ -245,37 +308,23 @@ void *atendeCliente(void *arg){
             }
 
         }
-
-        
-        /*if(res > 0){
-            if(res < sizeof(pergunta)){
-                
-                fprintf(stderr, "\nLongin recebido: %s", pergunta.username);
-
-                pthread_mutex_lock(&sd->lock); // bloqueia 
-
-                x = verificaUser(pergunta.username, sd->users);
-
-                if(x == 1){
-                    resp.confirmUser = true;
-                    sprintf(c_fifo_fname, CLIENTE_FIFO, pergunta.pid_cliente);
-                }
-
-                pthread_mutex_unlock(&sd->lock); // desbloqueia
-            }
-        }*/
     }
+    return NULL;
+}
+
+void preencheSd(ServidorData *sd){
+    sd->ligado=true;
+    pthread_mutex_init(&sd->lock, NULL);
+    preencheVeiculos(sd);
+    preencheClientes(sd);
 }
 
 int main(){
-    //ServidorData sd;
-    
+    ServidorData sd;
     char comando[50];
     int res;
 
-    sd.ligado=true;
-
-    preencheVeiculos(&sd);
+    preencheSd(&sd);
 
     printf("\nControlador Iniciado\n");
     if (signal(SIGINT,trataSig) == SIG_ERR) {
@@ -289,14 +338,9 @@ int main(){
         exit(EXIT_FAILURE);
     }
     fprintf(stderr, "\nFIFO servidor criado");
-    /* prepara FIFO do servidor */
-    /* abertura read+write -> evita o comportamento de ficar */
-    /* bloqueado no open. a execução prossegue e as*/
-    /* operações read/write (neste caso APENAS READ)*/
-    /* continuam bloqueantes (mais fácil de gerir)*/
+    
 
     sd.cFifo = open(CONTROLADOR_FIFO, O_RDWR);
-    /* bloqueante */
     if (sd.cFifo == -1) {
         perror("\nErro ao abrir o FIFO do servidor (RDWR/blocking)\n");
         exit(EXIT_FAILURE);
@@ -315,10 +359,10 @@ int main(){
         if(fgets(comando,sizeof(comando),stdin)==NULL)
             break;
         comando[strcspn(comando, "\n")] = '\0';
-        printf("\n.%s.\n",comando);
         if(strcmp(comando, "listar") == 0){
             printf("------listar-------\n");
-            lista_users(&sd);
+            /*lista_users(&sd);*/
+            lista_agenda_admin(&sd);
             printf("-------------------\n");
 
         }else if(strcmp(comando,"utiliz")==0){
@@ -339,7 +383,6 @@ int main(){
             printf("Comando errado\n");
         }
     }
-        usleep(1000000);
 
     /* fim do ciclo principal do servidor */
     /* em principio não chega a este ponto - sai via SIGINT */
