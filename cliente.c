@@ -1,25 +1,18 @@
 #include "config.h"
 #include <stdio.h>
-#include <string.h>
-
-int s_fifo_fd, c_fifo_fd;       /* descritores de ficheiros (pipes) */
-char c_fifo_fname[25];          /* nome do FIFO deste cliente */
-
+#include <string.h>       
 
 /* esta função vai atender o sinal SIGINT para terminar o servidor */
 void trataSig(int i) {
-    fprintf(stderr, "Cliente a terminar (interrompido via teclado)\n\n");
-
-    close(c_fifo_fd);
-    close(s_fifo_fd);
-    unlink(c_fifo_fname);
-    exit(EXIT_SUCCESS);
-    /* para terminar o processo */
+    fprintf(stderr, "Para terminar a sua sessao utilize o comando terminar\n");
 }
 
 int main(int argc, char *argv[]){
     pergunta_t perg;/* mensagem do "tipo" pergunta */
     resposta_t resp;/* mensagem do "tipo" resposta */
+    int s_fifo_fd, c_fifo_fd;       /* descritores de ficheiros (pipes) */
+    char c_fifo_fname[25];          /* nome do FIFO deste cliente */
+
     int read_res;
     char comando[50];
     fflush(stdout);
@@ -112,9 +105,11 @@ int main(int argc, char *argv[]){
                 }
                 printf("%s\n",resp.responde);
             }
-        }
-        else{
+        }else{
             read(c_fifo_fd, &resp, sizeof(resp));
+            if(strcmp(resp.responde,"ELIMINADO")==0){
+                break;
+            }
             printf("%s\n",resp.responde);
         }
     }

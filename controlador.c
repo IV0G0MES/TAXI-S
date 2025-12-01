@@ -1,6 +1,6 @@
 #define _GNU_SOURCE
 #include "config.h"
-
+//ENTREGA ATÉ AO DIA 13 DE DEZEMBRO
 //SINAL
 void trataSig(int i) {
     printf("Para terminar o Controlador utilize o comando terminar\n");
@@ -178,17 +178,19 @@ void lista_agenda(ServidorData *sd,char *nome,int cFifoD){
 }
 
 //FUNÇOES DO CONTROLADOR
-void remove_users(ServidorData *sd,char* nome){
+int remove_users(ServidorData *sd,char* nome){
     pthread_mutex_lock(&sd->lock);
     for(int i=0;i<NUTILIZADORES;i++){
         if(sd->users[i]!=NULL){
             if(strcmp(sd->users[i]->nome,nome)==0){
                 sd->users[i]=NULL;
-                break;
+                pthread_mutex_unlock(&sd->lock);
+                return 0;
             }
         }
     }
     pthread_mutex_unlock(&sd->lock);
+    return 1;
 }
 
 int cancelar_admin(ServidorData *sd,int id){
@@ -352,7 +354,13 @@ void *trataPedido(void *arg){
         }else if(strcmp(pergunta.comando,"sair")==0){
 
         }else if(strcmp(pergunta.comando,"terminar")==0){
-
+            int removido;
+            removido=remove_users(sd,pergunta.username);
+            if(removido==0){
+                strcpy(resposta.responde,"ELIMINADO");
+            }else{
+                strcpy(resposta.responde,"Erro a eliminar o utilizador\n");
+            }
         }else{
             strcpy(resposta.responde,"Comando Errado\n");
         }
