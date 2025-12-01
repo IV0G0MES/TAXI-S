@@ -114,6 +114,12 @@ int cancelar(ServidorData *sd,char*nome,int id){
     for(int i=0;i<NUTILIZADORES;i++){
         if(sd->users[i]!=NULL && strcmp(sd->users[i]->nome,nome)==0){
             if(id==0){
+                Agendamento *aux=sd->users[i]->agenda;
+                while(aux!=NULL){
+                    Agendamento *aux2 = aux->prox;
+                    free(aux);
+                    aux = aux2;
+                }
                 sd->users[i]->agenda=NULL;
                 pthread_mutex_unlock(&sd->lock);
                 return 2;
@@ -122,8 +128,8 @@ int cancelar(ServidorData *sd,char*nome,int id){
                 Agendamento *anterior = NULL;
                 while (atual!=NULL){
                     if(atual->id==id){
-                        if(atual->prox==NULL){
-                            atual=NULL;
+                        if(anterior==NULL){
+                            sd->users[i]->agenda=NULL;
                         }else{
                             anterior->prox=atual->prox;
                         }
@@ -190,6 +196,12 @@ int cancelar_admin(ServidorData *sd,int id){
     for(int i=0;i<NUTILIZADORES;i++){
         if(sd->users[i]!=NULL){
             if(id==0){
+                Agendamento *aux=sd->users[i]->agenda;
+                while(aux!=NULL){
+                    Agendamento *aux2 = aux->prox;
+                    free(aux);
+                    aux = aux2;
+                }
                 sd->users[i]->agenda=NULL;
                 pthread_mutex_unlock(&sd->lock);
                 return 2;
@@ -198,8 +210,8 @@ int cancelar_admin(ServidorData *sd,int id){
                 Agendamento *anterior = NULL;
                 while (atual!=NULL){
                     if(atual->id==id){
-                        if(atual->prox==NULL){
-                            atual=NULL;
+                        if(anterior==NULL){
+                            sd->users[i]->agenda=NULL;
                         }else{
                             anterior->prox=atual->prox;
                         }
@@ -258,11 +270,13 @@ void lista_agenda_admin(ServidorData *sd){
 }
 
 //TEMPO
-void *tempo(ServidorData *sd){
+void *tempo(void *arg){
+    ServidorData *sd=(ServidorData *) arg;
     sd->t.atual++;
     //Verificações relativas a viagens
     
     sleep(1);
+    return NULL;
 }
 
 //FUNÇOES THREADS
@@ -377,6 +391,9 @@ void *atendeCliente(void *arg){
             nova_tarefa->sd=sd;
             nova_tarefa->pergunta=pergunta;
 
+            //NÃO É PRECISO THREAD !!!!!!!
+            
+
             pthread_t tPedido;
             if(pthread_create(&tPedido, NULL, trataPedido, nova_tarefa) != 0){
                 perror("[ERRO] Não foi possivel criar Pedido");
@@ -387,8 +404,6 @@ void *atendeCliente(void *arg){
     }
     return NULL;
 }
-
-
 
 int main(){
     ServidorData sd;
