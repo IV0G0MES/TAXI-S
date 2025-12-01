@@ -43,6 +43,10 @@ typedef struct {
     bool criado;
 } resposta_t;
 
+typedef struct{
+    int atual;
+}Time;
+
 typedef struct Agendamento{
     int id;
     int hora;
@@ -54,7 +58,6 @@ typedef struct Agendamento{
 /* estrutura clientes*/
 typedef struct  {
     char nome[50];
-    int proxIdAgendamento;
     Agendamento *agenda;
     char fName[50];
 } Cliente;
@@ -63,17 +66,22 @@ typedef struct  {
 typedef struct{
     int id;
     bool ocupado;
+    int distanciaT;
     char local[50];
-    int distancia;
+    float perPercorrido;
+    int percorrido;
 } Veiculo;
 
 typedef struct {
     Cliente *users[NUTILIZADORES];
+    int proxIdAgendamento;
     Veiculo *carros[NVEICULOS];
+    Time t;
     int cFifo;
     bool ligado;
     pthread_mutex_t lock;
     pthread_t tRecebe;
+    pthread_t tTime;
 } ServidorData;
 
 typedef struct{
