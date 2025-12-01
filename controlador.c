@@ -255,7 +255,7 @@ void *trataPedido(void *arg){
             if(sscanf(pergunta.comando+9,"%d",&id)==1){
                 
             }else{
-                strcpy(resposta.responde,"Sitaxe do comando cancelar incorreta\n");
+                strcpy(resposta.responde,"Sintaxe do comando cancelar incorreta\n");
             }
         }else if(strncmp(pergunta.comando,"entrar ",7)==0){//falta apanhar destino
 
