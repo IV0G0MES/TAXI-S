@@ -31,7 +31,7 @@ int main(int argc, char *argv[]){
     fprintf(stderr, "Sinal SIGINT configurado\n");
 
     //Verificação controlador ativo
-    s_fifo_fd = open(CONTROLADOR_FIFO, O_WRONLY); /* bloqueante */
+    s_fifo_fd = open(CONTROLADOR_FIFO, O_WRONLY);
     if (s_fifo_fd == -1) {
         fprintf(stderr, "O servidor não está a correr\n");
         unlink(c_fifo_fname);
@@ -113,7 +113,7 @@ int main(int argc, char *argv[]){
             printf("%s\n",resp.responde);
         }
     }
-    printf("\nVou fechar!!\n");
+    printf("\nSessao a encerrar!\n");
     close(c_fifo_fd);
     close(s_fifo_fd);
     unlink(c_fifo_fname);

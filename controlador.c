@@ -181,56 +181,62 @@ void lista_agenda(ServidorData *sd,char *nome,int cFifoD){
 int remove_users(ServidorData *sd,char* nome){
     pthread_mutex_lock(&sd->lock);
     for(int i=0;i<NUTILIZADORES;i++){
-        if(sd->users[i]!=NULL){
-            if(strcmp(sd->users[i]->nome,nome)==0){
-                sd->users[i]=NULL;
-                pthread_mutex_unlock(&sd->lock);
-                return 0;
+        if(sd->users[i]!=NULL && strcmp(sd->users[i]->nome,nome)==0){
+            Agendamento *aux = sd->users[i]->agenda;
+            while(aux != NULL){
+                Agendamento *prox = aux->prox;
+                free(aux);
+                aux = prox;
             }
+            free(sd->users[i]);
+            sd->users[i]=NULL;
+            pthread_mutex_unlock(&sd->lock);
+            return 0;
         }
     }
     pthread_mutex_unlock(&sd->lock);
     return 1;
 }
 
-int cancelar_admin(ServidorData *sd,int id){
+int cancelar_admin(ServidorData *sd, int id) {
     pthread_mutex_lock(&sd->lock);
-    for(int i=0;i<NUTILIZADORES;i++){
-        if(sd->users[i]!=NULL){
-            if(id==0){
-                Agendamento *aux=sd->users[i]->agenda;
-                while(aux!=NULL){
+    if (id == 0) {
+        for (int i = 0; i < NUTILIZADORES; i++) {
+            if (sd->users[i] != NULL) {
+                Agendamento *aux = sd->users[i]->agenda;
+                while (aux != NULL) {
                     Agendamento *aux2 = aux->prox;
                     free(aux);
                     aux = aux2;
                 }
-                sd->users[i]->agenda=NULL;
-                pthread_mutex_unlock(&sd->lock);
-                return 2;
-            }else{
-                Agendamento *atual = sd->users[i]->agenda;
-                Agendamento *anterior = NULL;
-                while (atual!=NULL){
-                    if(atual->id==id){
-                        if(anterior==NULL){
-                            sd->users[i]->agenda=NULL;
-                        }else{
-                            anterior->prox=atual->prox;
-                        }
-                        free(atual);
-                        pthread_mutex_unlock(&sd->lock);
-                        return 0;
+                sd->users[i]->agenda = NULL;
+            }
+        }
+        pthread_mutex_unlock(&sd->lock);
+        return 2;
+    }
+    for (int i = 0; i < NUTILIZADORES; i++) {
+        if (sd->users[i] != NULL) {
+            Agendamento *atual = sd->users[i]->agenda;
+            Agendamento *anterior = NULL;
+            while (atual != NULL) {
+                if (atual->id == id) {
+                    if (anterior == NULL) {
+                        sd->users[i]->agenda = atual->prox;
+                    } else {
+                        anterior->prox = atual->prox;
                     }
-                    anterior=atual;
-                    atual=atual->prox;
+                    free(atual);
+                    pthread_mutex_unlock(&sd->lock);
+                    return 0;
                 }
-                pthread_mutex_unlock(&sd->lock);
-                return 1;
+                anterior = atual;
+                atual = atual->prox;
             }
         }
     }
     pthread_mutex_unlock(&sd->lock);
-    return 3;
+    return 1;
 }
 
 void lista_users(ServidorData *sd){
@@ -398,10 +404,7 @@ void *atendeCliente(void *arg){
             
             nova_tarefa->sd=sd;
             nova_tarefa->pergunta=pergunta;
-
-            //NÃO É PRECISO THREAD !!!!!!!
             
-
             pthread_t tPedido;
             if(pthread_create(&tPedido, NULL, trataPedido, nova_tarefa) != 0){
                 perror("[ERRO] Não foi possivel criar Pedido");
@@ -475,11 +478,8 @@ int main(){
                     printf("Agenda com o id indicado eliminada com sucesso\n");
                 }else if(cancela==1){
                     printf("Nao existe nenhum agendamento com esse Id\n");
-                }else if(cancela==2){
+                }else{
                     printf("Agenda eliminada\n");
-                }
-                else{
-                    printf("Nao existem utilizadores ativos\n");
                 }
             }else{
                 printf("Sintaxe do comando cancelar incorreta\n");
@@ -498,11 +498,9 @@ int main(){
         }
     }
 
-    /* fim do ciclo principal do servidor */
-    /* em principio não chega a este ponto - sai via SIGINT */
-    printf("\nVou fechar!!\n");
+    printf("\nControlador a encerrar!\n");
     
     close(sd.cFifo);
     unlink(CONTROLADOR_FIFO);
     return 0;
-} /* fim da função main do servidor */
+}
