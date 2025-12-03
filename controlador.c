@@ -277,6 +277,71 @@ void lista_agenda_admin(ServidorData *sd){
     pthread_mutex_unlock(&sd->lock);
 }
 
+int checkAvailability(ServidorData *sd){
+    for(int i=0;i<NVEICULOS;i++){
+        if(sd->carros[i]->ocupado==false){
+            return 1;
+        }
+    }
+    return 0;
+}
+
+
+//funcao que vai criar o pipe anonimo, fazer o fork, 
+//ligar o stdout ao pipe que criou
+//de seguida o exec do veiculo
+void lauchCar(void *arg){
+    Cliente *clt=(Cliente *) arg;
+    char local[50]=clt->agenda->local;
+    int distancia=clt->agenda->distancia;
+    char fName[50]=clt->fName;
+
+    int fd[2];
+            if(pipe(fd)==-1){
+                perror("Erro ao criar o canal de comunicacao com o veiculo");
+                return 1;
+            }
+
+            //PROVAVELMENTE ISTO TA TUDO MAL QUE OS PIPES ANÓNIMOS NNC FORAM A MINHA PRAIA
+            pid_t pid = fork();
+            if(pid == -1){
+                perror("Erro a iniciar o veiculo"); // erro a criar processo
+                return 1;
+            }
+            if(pid==0){//filho
+                close(fd[0]); //Fecha ponta de leitura
+
+            }
+            else{//pai
+                close(fd[1]);//fecha escrita
+                dup2(fd[0], 0);
+                close(fd[0]);
+            }
+
+}
+
+void checkAgendas(ServidorData *sd){
+    for(int i=0; i<NUTILIZADORES;i++){
+        if(sd->users[i]!=NULL){
+            Agendamento *agenda=sd->users[i]->agenda;
+            while(agenda!=NULL){
+                if(agenda->hora<=sd->t.atual){
+                    if(checkAvailability(&sd)==1){
+                        pthread_t tCarro;
+                        if(pthread_create(&tCarro, NULL, lauchCar,sd->users[i]) != 0){
+                            perror("[ERRO] Não foi possivel lançar o carro");
+                        }
+                    }
+                    else{
+                        printf("Não existem carros disponiveis, assim que possivel lanco um carro");
+                    }
+                }
+                agenda=agenda->prox;
+            }
+        }
+    }
+}
+
 //TEMPO
 void *tempo(void *arg){
     ServidorData *sd=(ServidorData *) arg;
