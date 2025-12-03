@@ -290,7 +290,7 @@ int checkAvailability(ServidorData *sd){
 //funcao que vai criar o pipe anonimo, fazer o fork, 
 //ligar o stdout ao pipe que criou
 //de seguida o exec do veiculo
-void lauchCar(void *arg){
+/*void lauchCar(void *arg){
     Cliente *clt=(Cliente *) arg;
     char local[50]=clt->agenda->local;
     int distancia=clt->agenda->distancia;
@@ -318,9 +318,9 @@ void lauchCar(void *arg){
                 close(fd[0]);
             }
 
-}
+}*/
 
-void checkAgendas(ServidorData *sd){
+/*void checkAgendas(ServidorData *sd){
     for(int i=0; i<NUTILIZADORES;i++){
         if(sd->users[i]!=NULL){
             Agendamento *agenda=sd->users[i]->agenda;
@@ -340,7 +340,7 @@ void checkAgendas(ServidorData *sd){
             }
         }
     }
-}
+}*/
 
 //TEMPO
 void *tempo(void *arg){

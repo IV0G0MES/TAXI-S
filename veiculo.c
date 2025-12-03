@@ -1,5 +1,23 @@
 #include "config.h"
 
+int fdCliente = -1;
+
+int trataSinal(int i){
+    if(i == SIGUSR1){
+        //controlador manda cancelar 
+        if(fdCliente != -1){
+            resposta_t msg;
+            strcpy(msg.responde,"[VEICULO] Viagem canelado pelo admin");
+            msg.criado=false;
+            write(fdCliente, &msg, sizeof(msg));
+            close(fdCliente);
+        }
+    }
+    printf("CANCELADO\n");
+    fflush(stdout);
+    exit(EXIT_SUCCESS);
+}
+
 //veiculo <local> <distancia> <fifoCliente>
 int main(int agrc, char *argv[]){
     if(agrc != 4){
@@ -22,6 +40,13 @@ int main(int agrc, char *argv[]){
     }
     printf("Consegui abrir o fifo do cliente!!!!!\n");
     
+    //sinal SIGURS1
+    if(signal(SIGUSR1, trataSinal) == SIG_ERR){
+        perror("Erro no SIGURS1\n");
+        return -1;
+    }
+    signal(SIGINT, SIG_IGN); // ingora ctrl+c
+
 
     resposta_t msg;
     //INICIO DA VIAGEM
@@ -31,7 +56,19 @@ int main(int agrc, char *argv[]){
 
     //printf("INICIO\n");
     //fflush(stdout);
-    
+    int kms = 0;
+    int lastReport = 0;
+    while(kms < distancia){
+        sleep(1); // 1 segundo = 1 unidade tempo por enuqanto 
+        kms++;
+
+        int distPerc = (kms*100) / distancia;
+        while(distPerc >= lastReport + 10){
+            lastReport +=10;
+            printf("PERCORREU %d\n", lastReport);
+            //fflush(stdout);
+        }        
+    }
     //Logica da viagem em si
     
     
