@@ -9,7 +9,7 @@ int main(int agrc, char *argv[]){
 
     char fifo_cliente[50];
     char local[50];
-    //int distancia = atoi(argv[2]);
+    int distancia = atoi(argv[2]);
     strcpy(local, argv[1]);
     strcpy(fifo_cliente, argv[3]);
     

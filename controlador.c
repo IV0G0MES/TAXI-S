@@ -283,7 +283,7 @@ void *tempo(void *arg){
     sd->t.atual++;
     //Verificações relativas a viagens
     
-    sleep(1);
+    sleep(1); // em segundos
     return NULL;
 }
 
@@ -355,10 +355,6 @@ void *trataPedido(void *arg){
             }else{
                 strcpy(resposta.responde,"Sintaxe do comando cancelar incorreta\n");
             }
-        }else if(strncmp(pergunta.comando,"entrar ",7)==0){//falta apanhar destino
-
-        }else if(strcmp(pergunta.comando,"sair")==0){
-
         }else if(strcmp(pergunta.comando,"terminar")==0){
             int removido;
             removido=remove_users(sd,pergunta.username);
