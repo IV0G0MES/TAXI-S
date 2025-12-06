@@ -292,11 +292,15 @@ void *lauchCar(void *arg){
     int iUser=aux->iUser;
     free(aux);
 
+    pthread_mutex_lock(&sd->lock);
+
     char local[50];
     strcpy(local,sd->users[iUser]->agenda->local);
     int distancia=sd->users[iUser]->agenda->distancia;
     char fName[50];
     strcpy(fName,sd->users[iUser]->fName);
+
+    pthread_mutex_unlock(&sd->lock);
 
     int fd[2];
     //pipes: 1-escrita  0-leitura
@@ -325,11 +329,17 @@ void *lauchCar(void *arg){
         close(fd[1]);//fecha escrita
         int flags = fcntl(fd[0], F_GETFL, 0); //obter as flags que o pipe tem
         fcntl(fd[0], F_SETFL, flags | O_NONBLOCK); //pegar nas flags antigas e adicionar o nonblock
+
+        pthread_mutex_lock(&sd->lock);
+
         sd->carros[idCarro]->fd=fd[0];
         sd->carros[idCarro]->pid=pid;
         sd->carros[idCarro]->ocupado=true;
         sd->carros[idCarro]->perPercorrido=0;
         strcpy(sd->carros[idCarro]->local, local);
+
+        pthread_mutex_unlock(&sd->lock);
+
         printf("[CONTROLADOR] Veículo lançado com PID %d\n", pid);
     }
     return NULL;
@@ -417,16 +427,16 @@ void trataPedido(ServidorData *sd,pergunta_t pergunta){
         int verifica;
         verifica=verificaUser(sd,pergunta.username,ClienteFifo);
         if(verifica==0){
-            strcpy(resposta.responde,"Cliente criado com sucesso\n");
+            strcpy(resposta.responde,"[CONTROLADOR]Cliente criado com sucesso\n");
             resposta.criado=1;
         }else if(verifica==1){
-            strcpy(resposta.responde,"Cliente ja existe pelo que nao foi criado\n");
+            strcpy(resposta.responde,"[CONTROLADOR]Cliente ja existe pelo que nao foi criado\n");
             resposta.criado=0;
         }else if(verifica==2){
-            strcpy(resposta.responde,"Criacao de cliente deu erro\n");
+            strcpy(resposta.responde,"[CONTROLADOR]Criacao de cliente deu erro\n");
             resposta.criado=0;
         }else{
-            strcpy(resposta.responde,"Cliente nao criado\nMaximo de clientes atingido\n");
+            strcpy(resposta.responde,"[CONTROLADOR]Cliente nao criado\nMaximo de clientes atingido\n");
             resposta.criado=0;
         }
     }else{
@@ -436,12 +446,12 @@ void trataPedido(ServidorData *sd,pergunta_t pergunta){
             int distancia;
             if(sscanf(pergunta.comando+8,"%d %s %d",&hora,local,&distancia)==3){
                 if(agenda(sd,pergunta.username,hora,local,distancia)==0){
-                    strcpy(resposta.responde,"Agendamento efetuado com sucesso\n");
+                    strcpy(resposta.responde,"[CONTROLADOR]Agendamento efetuado com sucesso\n");
                 }else{
-                    strcpy(resposta.responde,"Agendamento nao efetuado, erro no servidor\n");
+                    strcpy(resposta.responde,"[CONTROLADOR]Agendamento nao efetuado, erro no servidor\n");
                 }
             }else{
-                strcpy(resposta.responde,"Sintaxe do comando agendar incorreta\n");
+                strcpy(resposta.responde,"[CONTROLADOR]Sintaxe do comando agendar incorreta\n");
             }
 
         }else if(strcmp(pergunta.comando,"consultar")==0){
@@ -457,17 +467,17 @@ void trataPedido(ServidorData *sd,pergunta_t pergunta){
             if(sscanf(pergunta.comando+9,"%d",&id)==1){
                 int cancela=cancelar(sd,pergunta.username,id);
                 if(cancela==0){
-                    strcpy(resposta.responde,"Agenda com o id indicado eliminada com sucesso\n");
+                    strcpy(resposta.responde,"[CONTROLADOR]Agenda com o id indicado eliminada com sucesso\n");
                 }else if(cancela==1){
-                    strcpy(resposta.responde,"Nao existe nenhum agendamento com esse Id\n");
+                    strcpy(resposta.responde,"[CONTROLADOR]Nao existe nenhum agendamento com esse Id\n");
                 }else if(cancela==2){
-                    strcpy(resposta.responde,"Agenda eliminada\n");
+                    strcpy(resposta.responde,"[CONTROLADOR]Agenda eliminada\n");
                 }
                 else{
-                    strcpy(resposta.responde,"Utilizador nao encontrado\n");
+                    strcpy(resposta.responde,"[CONTROLADOR]Utilizador nao encontrado\n");
                 }
             }else{
-                strcpy(resposta.responde,"Sintaxe do comando cancelar incorreta\n");
+                strcpy(resposta.responde,"[CONTROLADOR]Sintaxe do comando cancelar incorreta\n");
             }
         }else if(strcmp(pergunta.comando,"terminar")==0){
             int removido;
@@ -475,10 +485,10 @@ void trataPedido(ServidorData *sd,pergunta_t pergunta){
             if(removido==0){
                 strcpy(resposta.responde,"ELIMINADO");
             }else{
-                strcpy(resposta.responde,"Erro a eliminar o utilizador\n");
+                strcpy(resposta.responde,"[CONTROLADOR]Erro a eliminar o utilizador\n");
             }
         }else{
-            strcpy(resposta.responde,"Comando Errado\n");
+            strcpy(resposta.responde,"[CONTROLADOR]Comando Errado\n");
         }
     }
 
