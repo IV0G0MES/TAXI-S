@@ -10,7 +10,7 @@ void trataSig(int i) {
 void *clienteEscuta(void * arg){
     AuxiliaCliente * aux = (AuxiliaCliente *) arg;
     resposta_t resp;
-    
+    return NULL;
 }
 
 int main(int argc, char *argv[]){
@@ -24,9 +24,6 @@ int main(int argc, char *argv[]){
     fflush(stdout);
     if(argc!=2){
         printf("Precisa de indicar um nome de utilizador!!!\n");
-        close(c_fifo_fd);
-        close(s_fifo_fd);
-        unlink(c_fifo_fname);
         exit(EXIT_FAILURE);
     }
 
@@ -97,7 +94,6 @@ int main(int argc, char *argv[]){
         perg.pid_cliente=getpid();
         strcpy(perg.username,argv[1]);
         strcpy(perg.tipo_pergunta,"COMANDO");
-        processaComandos(perg,comando);
         strcpy(perg.comando,comando);
         write(s_fifo_fd,& perg,sizeof(perg));
         if(strcmp(comando,"consultar")==0){

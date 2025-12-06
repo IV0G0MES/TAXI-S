@@ -2,8 +2,8 @@
 
 int fdCliente = -1;
 
-int trataSinal(int i){
-    if(i == SIGUSR1){
+void trataSinal(int i){
+    /*if(i == SIGUSR1){
         //controlador manda cancelar 
         if(fdCliente != -1){
             resposta_t msg;
@@ -14,7 +14,7 @@ int trataSinal(int i){
         }
     }
     printf("CANCELADO\n");
-    fflush(stdout);
+    fflush(stdout);*/
     exit(EXIT_SUCCESS);
 }
 
@@ -43,7 +43,7 @@ int main(int agrc, char *argv[]){
     //sinal SIGURS1
     if(signal(SIGUSR1, trataSinal) == SIG_ERR){
         perror("Erro no SIGURS1\n");
-        return -1;
+        exit(EXIT_FAILURE);
     }
     signal(SIGINT, SIG_IGN); // ingora ctrl+c
 

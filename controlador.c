@@ -285,7 +285,7 @@ int checkAvailability(ServidorData *sd){
     return -1;
 }
 
-void lauchCar(void *arg){
+void *lauchCar(void *arg){
     AuxiliaLaunch *aux=(AuxiliaLaunch *) arg;
     ServidorData *sd=aux->sd;
     int idCarro=aux->idCarro; 
@@ -302,13 +302,13 @@ void lauchCar(void *arg){
     //pipes: 1-escrita  0-leitura
     if(pipe(fd)==-1){
         perror("Erro ao criar o canal de comunicacao com o veiculo");
-        return 1;
+        return NULL;
     }
 
     pid_t pid = fork();
     if(pid == -1){
         perror("Erro a iniciar o veiculo"); // erro a criar processo
-        return 1;
+        return NULL;
     }
     if(pid==0){//filho
         close(fd[0]);
@@ -332,7 +332,7 @@ void lauchCar(void *arg){
         strcpy(sd->carros[idCarro]->local, local);
         printf("[CONTROLADOR] Veículo lançado com PID %d\n", pid);
     }
-
+    return NULL;
 }
 
 void checkAgendas(ServidorData *sd){
@@ -407,19 +407,6 @@ void readFrota(ServidorData *sd){
     }
 }
 
-//TEMPO
-void *tempo(void *arg){
-    ServidorData *sd=(ServidorData *) arg;
-    while(sd->ligado){
-        sd->t.atual++;
-        readFrota(sd);
-        checkAgendas(sd);
-        sleep(UTEMPO);
-    }
-    return NULL;
-}
-
-//FUNÇOES THREADS
 void trataPedido(ServidorData *sd,pergunta_t pergunta){
     resposta_t resposta;
     int cFifoD;
@@ -505,6 +492,20 @@ void trataPedido(ServidorData *sd,pergunta_t pergunta){
     }
 }
 
+//TEMPO
+void *tempo(void *arg){
+    ServidorData *sd=(ServidorData *) arg;
+    while(sd->ligado){
+        sd->t.atual++;
+        readFrota(sd);
+        checkAgendas(sd);
+        sleep(UTEMPO);
+    }
+    return NULL;
+}
+
+//FUNÇOES THREADS
+
 void *atendeCliente(void *arg){
     ServidorData *sd = (ServidorData *) arg;
     pergunta_t pergunta;
@@ -556,6 +557,8 @@ int main(){
 
     printf("\nControlador aberto...\n");
     
+
+    //THREADS
     if(pthread_create(&sd.tRecebe, NULL, &atendeCliente, &sd) != 0){
         exit(EXIT_FAILURE);
     }
@@ -600,7 +603,6 @@ int main(){
             printf("Estou na hora\n");
         }else if(strcmp(comando,"terminar")==0){
             sd.ligado=false;
-            printf("Estou no sair\n");
            break;
         }else {
             printf("Comando errado\n");
