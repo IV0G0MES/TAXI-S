@@ -290,16 +290,16 @@ void *lauchCar(void *arg){
     ServidorData *sd=aux->sd;
     int idCarro=aux->idCarro; 
     int iUser=aux->iUser;
-    free(aux);
 
     pthread_mutex_lock(&sd->lock);
 
     char local[50];
-    strcpy(local,sd->users[iUser]->agenda->local);
-    int distancia=sd->users[iUser]->agenda->distancia;
+    strcpy(local,aux->local);
+    int distancia=aux->distancia;
     char fName[50];
-    strcpy(fName,sd->users[iUser]->fName);
-
+    strcpy(fName,aux->fName);
+    free(aux);
+    
     pthread_mutex_unlock(&sd->lock);
 
     int fd[2];
@@ -346,9 +346,11 @@ void *lauchCar(void *arg){
 }
 
 void checkAgendas(ServidorData *sd){
+    pthread_mutex_lock(&sd->lock);
     for(int i=0; i<NUTILIZADORES;i++){
         if(sd->users[i]!=NULL){
             Agendamento *agenda=sd->users[i]->agenda;
+            Agendamento *anterior=NULL;
             while(agenda!=NULL){
                 if(agenda->hora<=sd->t.atual){
                     int id_carro=checkAvailability(sd);
@@ -356,31 +358,47 @@ void checkAgendas(ServidorData *sd){
                         AuxiliaLaunch *launch=malloc(sizeof(AuxiliaLaunch));
                         if(launch==NULL){
                             perror("Erro a criar o lauch auxiliar\n");
+                            anterior=agenda;
+                            agenda=agenda->prox;
                             continue;
                         }
                         launch->idCarro=id_carro;
                         launch->iUser=i;
                         launch->sd=sd;
+                        strcpy(launch->local, agenda->local);
+                        launch->distancia = agenda->distancia;
+                        strcpy(launch->fName, sd->users[i]->fName);
                         pthread_t tCarro;
                         if(pthread_create(&tCarro, NULL, lauchCar,launch) != 0){
                             perror("[ERRO] Não foi possivel lançar o carro");
+                            free(launch);
+                            anterior = agenda;
+                            agenda = agenda->prox;
                         }else{
-                            int agendaRemover = agenda->id;
-                            char user[50];
-                            strcpy(user, sd->users[i]->nome);
-                            agenda=agenda->prox;
-                            cancelar(sd,user,agendaRemover);
+                            Agendamento *temp = agenda;
+                            if(anterior == NULL){
+                                sd->users[i]->agenda = agenda->prox;
+                            } else {
+                                anterior->prox = agenda->prox;
+                            }
+                            agenda = agenda->prox;
+                            free(temp);
                             continue;
                         }
                     }
                     else{
+                        anterior = agenda;
+                        agenda = agenda->prox;
                         printf("Não existem carros disponiveis, assim que possivel lanco um carro");
                     }
+                }else{
+                    anterior=agenda;
+                    agenda=agenda->prox;
                 }
-                agenda=agenda->prox;
             }
         }
     }
+    pthread_mutex_unlock(&sd->lock);
 }
 
 void readFrota(ServidorData *sd){
@@ -515,7 +533,6 @@ void *tempo(void *arg){
 }
 
 //FUNÇOES THREADS
-
 void *atendeCliente(void *arg){
     ServidorData *sd = (ServidorData *) arg;
     pergunta_t pergunta;
@@ -536,9 +553,56 @@ void *atendeCliente(void *arg){
     return NULL;
 }
 
+void *cAdmin(void *arg){
+    ServidorData *sd = (ServidorData *) arg;
+    char comando[50];
+
+    while (sd->ligado) {
+        printf("Comando: ");
+        if(fgets(comando,sizeof(comando),stdin)==NULL)
+            break;
+        comando[strcspn(comando, "\n")] = '\0';
+        if(strcmp(comando, "listar") == 0){
+            printf("------listar-------\n");
+
+            lista_agenda_admin(&sd);
+            printf("-------------------\n");
+
+        }else if(strcmp(comando,"utiliz")==0){
+            lista_users(&sd);
+        }else if(strcmp(comando,"frota")==0){
+            listaCarros(&sd);
+        }else if(strncmp(comando,"cancelar ",9)==0){
+            int id;
+            if(sscanf(comando+9,"%d",&id)==1){
+                int cancela=cancelar_admin(&sd,id);
+                if(cancela==0){
+                    printf("Agenda com o id indicado eliminada com sucesso\n");
+                }else if(cancela==1){
+                    printf("Nao existe nenhum agendamento com esse Id\n");
+                }else{
+                    printf("Agenda eliminada\n");
+                }
+            }else{
+                printf("Sintaxe do comando cancelar incorreta\n");
+            }
+            
+        }else if(strcmp(comando,"km")==0){
+            printf("Estou no km\n");
+        }else if(strcmp(comando,"hora")==0){
+            printf("Estou na hora\n");
+        }else if(strcmp(comando,"terminar")==0){
+            sd->ligado=false;
+           break;
+        }else {
+            printf("Comando errado\n");
+        }
+    }
+
+}
+
 int main(){
     ServidorData sd;
-    char comando[50];
     int res;
 
     preencheSd(&sd);
@@ -577,48 +641,11 @@ int main(){
         exit(EXIT_FAILURE);
     }
 
-    while (sd.ligado) {
-        printf("Comando: ");
-        if(fgets(comando,sizeof(comando),stdin)==NULL)
-            break;
-        comando[strcspn(comando, "\n")] = '\0';
-        if(strcmp(comando, "listar") == 0){
-            printf("------listar-------\n");
-
-            lista_agenda_admin(&sd);
-            printf("-------------------\n");
-
-        }else if(strcmp(comando,"utiliz")==0){
-            lista_users(&sd);
-        }else if(strcmp(comando,"frota")==0){
-            listaCarros(&sd);
-        }else if(strncmp(comando,"cancelar ",9)==0){
-            int id;
-            if(sscanf(comando+9,"%d",&id)==1){
-                int cancela=cancelar_admin(&sd,id);
-                if(cancela==0){
-                    printf("Agenda com o id indicado eliminada com sucesso\n");
-                }else if(cancela==1){
-                    printf("Nao existe nenhum agendamento com esse Id\n");
-                }else{
-                    printf("Agenda eliminada\n");
-                }
-            }else{
-                printf("Sintaxe do comando cancelar incorreta\n");
-            }
-            
-        }else if(strcmp(comando,"km")==0){
-            printf("Estou no km\n");
-        }else if(strcmp(comando,"hora")==0){
-            printf("Estou na hora\n");
-        }else if(strcmp(comando,"terminar")==0){
-            sd.ligado=false;
-           break;
-        }else {
-            printf("Comando errado\n");
-        }
+    if(pthread_create(&sd.tAdmin,NULL,&cAdmin,&sd)!=0){
+        exit(EXIT_FAILURE);
     }
 
+    pthread_join(sd.tAdmin, NULL);
     printf("\nControlador a encerrar!\n");
     
     close(sd.cFifo);

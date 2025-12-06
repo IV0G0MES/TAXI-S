@@ -86,6 +86,7 @@ typedef struct {
     pthread_mutex_t lock;
     pthread_t tRecebe;
     pthread_t tTime;
+    pthread_t tAdmin;
 } ServidorData;
 
 typedef struct{
@@ -102,4 +103,8 @@ typedef struct{
     ServidorData *sd;
     int idCarro;
     int iUser;
+
+    char local[50];
+    int distancia;
+    char fName[50];
 }AuxiliaLaunch;
