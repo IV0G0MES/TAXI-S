@@ -59,7 +59,7 @@ int main(int agrc, char *argv[]){
     int kms = 0;
     int lastReport = 0;
     while(kms < distancia){
-        sleep(1); // 1 segundo = 1 unidade tempo por enuqanto 
+        sleep(UTEMPO);  
         kms++;
 
         int distPerc = (kms*100) / distancia;
@@ -70,7 +70,6 @@ int main(int agrc, char *argv[]){
         }        
     }
     //Logica da viagem em si
-    
     
     //FIM DA VIAGEM
     //printf("FIM\n");

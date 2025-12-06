@@ -290,7 +290,7 @@ int checkAvailability(ServidorData *sd){
 //funcao que vai criar o pipe anonimo, fazer o fork, 
 //ligar o stdout ao pipe que criou
 //de seguida o exec do veiculo
-/*void lauchCar(void *arg){
+void lauchCar(void *arg){
     Cliente *clt=(Cliente *) arg;
     char local[50]=clt->agenda->local;
     int distancia=clt->agenda->distancia;
@@ -309,8 +309,11 @@ int checkAvailability(ServidorData *sd){
                 return 1;
             }
             if(pid==0){//filho
-                close(fd[0]); //Fecha ponta de leitura
-
+                close(STDOU_FILENO);
+                dup(mat[1]);
+                close(fd[1]);
+                close(fd[0]);
+                execlp()
             }
             else{//pai
                 close(fd[1]);//fecha escrita
@@ -318,9 +321,9 @@ int checkAvailability(ServidorData *sd){
                 close(fd[0]);
             }
 
-}*/
+}
 
-/*void checkAgendas(ServidorData *sd){
+void checkAgendas(ServidorData *sd){
     for(int i=0; i<NUTILIZADORES;i++){
         if(sd->users[i]!=NULL){
             Agendamento *agenda=sd->users[i]->agenda;
@@ -340,15 +343,14 @@ int checkAvailability(ServidorData *sd){
             }
         }
     }
-}*/
+}
 
 //TEMPO
 void *tempo(void *arg){
     ServidorData *sd=(ServidorData *) arg;
     sd->t.atual++;
-    //Verificações relativas a viagens
-    
-    sleep(1); // em segundos
+    checkAgendas(&sd);
+    sleep(UTEMPO); // em segundos
     return NULL;
 }
 

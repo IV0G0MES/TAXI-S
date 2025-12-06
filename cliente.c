@@ -7,6 +7,12 @@ void trataSig(int i) {
     fprintf(stderr, "Para terminar a sua sessao utilize o comando terminar\n");
 }
 
+void *clienteEscuta(void * arg){
+    AuxiliaCliente * aux = (AuxiliaCliente *) arg;
+    resposta_t resp;
+    
+}
+
 int main(int argc, char *argv[]){
     pergunta_t perg;/* mensagem do "tipo" pergunta */
     resposta_t resp;/* mensagem do "tipo" resposta */
@@ -91,6 +97,7 @@ int main(int argc, char *argv[]){
         perg.pid_cliente=getpid();
         strcpy(perg.username,argv[1]);
         strcpy(perg.tipo_pergunta,"COMANDO");
+        processaComandos(perg,comando);
         strcpy(perg.comando,comando);
         write(s_fifo_fd,& perg,sizeof(perg));
         if(strcmp(comando,"consultar")==0){

@@ -12,6 +12,7 @@
 #include <errno.h>
 #include <pthread.h>
 
+#define UTEMPO 1 // 1 segundo = 1 unidade tempo por enuqanto
 /* nome do FIFO do controlador */
 #define CONTROLADOR_FIFO "./fifos/ctrl_fifo"
 
@@ -26,8 +27,6 @@
 
 /*Numero maximo de veiculos*/
 #define NVEICULOS 10
-
-
 
 /* estrutura da mensagem correspondente a um pedido cliente -> controlador*/
 typedef struct {
@@ -88,3 +87,8 @@ typedef struct{
     ServidorData *sd;
     pergunta_t pergunta;
 }AuxiliaP;
+
+typedef struct{
+    int cliFifo;
+    char fifoName[50];
+} AuxiliaCliente;
