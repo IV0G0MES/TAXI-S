@@ -12,7 +12,9 @@
 #include <errno.h>
 #include <pthread.h>
 
+/* UNIDADE DE TEMPO */
 #define UTEMPO 1 // 1 segundo = 1 unidade tempo por enuqanto
+
 /* nome do FIFO do controlador */
 #define CONTROLADOR_FIFO "./fifos/ctrl_fifo"
 
@@ -46,6 +48,8 @@ typedef struct{
     int atual;
 }Time;
 
+
+
 typedef struct Agendamento{
     int id;
     int hora;
@@ -68,7 +72,8 @@ typedef struct{
     int distanciaT;
     char local[50];
     float perPercorrido;
-    int percorrido;
+    int fd;
+    pid_t pid; //necessario para enviar o controlador enviar o sinal para cancelar
 } Veiculo;
 
 typedef struct {
@@ -92,3 +97,9 @@ typedef struct{
     int cliFifo;
     char fifoName[50];
 } AuxiliaCliente;
+
+typedef struct{
+    ServidorData *sd;
+    int idCarro;
+    int iUser;
+}AuxiliaLaunch;

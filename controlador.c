@@ -19,8 +19,7 @@ void preencheVeiculos(ServidorData *sd){
             novo_veiculo->ocupado=false;
             novo_veiculo->distanciaT=0;
             strcpy(novo_veiculo->local,"");
-            novo_veiculo->percorrido=0.0;
-            novo_veiculo->percorrido=0;
+            novo_veiculo->perPercorrido=0.0;
             sd->carros[i]=novo_veiculo;
     }
     printf("Vetor veiculos preenchido");
@@ -280,46 +279,59 @@ void lista_agenda_admin(ServidorData *sd){
 int checkAvailability(ServidorData *sd){
     for(int i=0;i<NVEICULOS;i++){
         if(sd->carros[i]->ocupado==false){
-            return 1;
+            return sd->carros[i]->id;
         }
     }
-    return 0;
+    return -1;
 }
 
-
-//funcao que vai criar o pipe anonimo, fazer o fork, 
-//ligar o stdout ao pipe que criou
-//de seguida o exec do veiculo
 void lauchCar(void *arg){
-    Cliente *clt=(Cliente *) arg;
-    char local[50]=clt->agenda->local;
-    int distancia=clt->agenda->distancia;
-    char fName[50]=clt->fName;
+    AuxiliaLaunch *aux=(AuxiliaLaunch *) arg;
+    ServidorData *sd=aux->sd;
+    int idCarro=aux->idCarro; 
+    int iUser=aux->iUser;
+    free(aux);
+
+    char local[50];
+    strcpy(local,sd->users[iUser]->agenda->local);
+    int distancia=sd->users[iUser]->agenda->distancia;
+    char fName[50];
+    strcpy(fName,sd->users[iUser]->fName);
 
     int fd[2];
-            if(pipe(fd)==-1){
-                perror("Erro ao criar o canal de comunicacao com o veiculo");
-                return 1;
-            }
+    //pipes: 1-escrita  0-leitura
+    if(pipe(fd)==-1){
+        perror("Erro ao criar o canal de comunicacao com o veiculo");
+        return 1;
+    }
 
-            //PROVAVELMENTE ISTO TA TUDO MAL QUE OS PIPES ANÓNIMOS NNC FORAM A MINHA PRAIA
-            pid_t pid = fork();
-            if(pid == -1){
-                perror("Erro a iniciar o veiculo"); // erro a criar processo
-                return 1;
-            }
-            if(pid==0){//filho
-                close(STDOU_FILENO);
-                dup(mat[1]);
-                close(fd[1]);
-                close(fd[0]);
-                execlp()
-            }
-            else{//pai
-                close(fd[1]);//fecha escrita
-                dup2(fd[0], 0);
-                close(fd[0]);
-            }
+    pid_t pid = fork();
+    if(pid == -1){
+        perror("Erro a iniciar o veiculo"); // erro a criar processo
+        return 1;
+    }
+    if(pid==0){//filho
+        close(fd[0]);
+        close(STDOUT_FILENO);
+        dup(fd[1]);
+        close(fd[1]);
+
+        char distanciaStr[50];
+        sprintf(distanciaStr,"%d",distancia);
+
+        execlp("./veiculo","veiculo",local,distanciaStr,fName,NULL);
+    }
+    else{//pai
+        close(fd[1]);//fecha escrita
+        int flags = fcntl(fd[0], F_GETFL, 0); //obter as flags que o pipe tem
+        fcntl(fd[0], F_SETFL, flags | O_NONBLOCK); //pegar nas flags antigas e adicionar o nonblock
+        sd->carros[idCarro]->fd=fd[0];
+        sd->carros[idCarro]->pid=pid;
+        sd->carros[idCarro]->ocupado=true;
+        sd->carros[idCarro]->perPercorrido=0;
+        strcpy(sd->carros[idCarro]->local, local);
+        printf("[CONTROLADOR] Veículo lançado com PID %d\n", pid);
+    }
 
 }
 
@@ -329,10 +341,26 @@ void checkAgendas(ServidorData *sd){
             Agendamento *agenda=sd->users[i]->agenda;
             while(agenda!=NULL){
                 if(agenda->hora<=sd->t.atual){
-                    if(checkAvailability(&sd)==1){
+                    int id_carro=checkAvailability(sd);
+                    if(id_carro!=-1){
+                        AuxiliaLaunch *launch=malloc(sizeof(AuxiliaLaunch));
+                        if(launch==NULL){
+                            perror("Erro a criar o lauch auxiliar\n");
+                            continue;
+                        }
+                        launch->idCarro=id_carro;
+                        launch->iUser=i;
+                        launch->sd=sd;
                         pthread_t tCarro;
-                        if(pthread_create(&tCarro, NULL, lauchCar,sd->users[i]) != 0){
+                        if(pthread_create(&tCarro, NULL, lauchCar,launch) != 0){
                             perror("[ERRO] Não foi possivel lançar o carro");
+                        }else{
+                            int agendaRemover = agenda->id;
+                            char user[50];
+                            strcpy(user, sd->users[i]->nome);
+                            agenda=agenda->prox;
+                            cancelar(sd,user,agendaRemover);
+                            continue;
                         }
                     }
                     else{
@@ -345,22 +373,54 @@ void checkAgendas(ServidorData *sd){
     }
 }
 
+void readFrota(ServidorData *sd){
+    char feedbackV[100];
+    int n;
+    int percentagem;
+    for(int i=0;i<NVEICULOS;i++){
+        if (sd->carros[i]->ocupado) {
+            while(true){ //ler TUDO o q tem o pipe
+                n = read(sd->carros[i]->fd, feedbackV, sizeof(feedbackV)-1); //SE NAO LER NAO BLOQUEIA PORQUE FOI ABERTO COM NONBLOCK
+                if (n > 0) {
+                    feedbackV[n] = '\0';
+                    printf("[VEICULO] Carro ID %d diz: %s\n", sd->carros[i]->id, feedbackV);
+                    if(sscanf(feedbackV,"Percorri %d",&percentagem)==1){
+                        sd->carros[i]->perPercorrido=percentagem;
+                    }else if(strstr(feedbackV, "Terminei ")!=NULL){
+                        /*Funcoes para libertar veiculo*/
+                        printf("O veiculo ficou livre\n");
+                        break;
+                    }
+                }
+                else{
+                    if (n == 0) {
+                        sd->carros[i]->ocupado = false;
+                        close(sd->carros[i]->fd);
+                    }
+                    else if (errno != EAGAIN) { //SE FOR EAGAIN É SINAL QUE O CARRO NAO MANDOU NADA
+                            perror("Erro no pipe");
+                    }
+                    break;
+                }
+            }
+        }
+    }
+}
+
 //TEMPO
 void *tempo(void *arg){
     ServidorData *sd=(ServidorData *) arg;
-    sd->t.atual++;
-    checkAgendas(&sd);
-    sleep(UTEMPO); // em segundos
+    while(sd->ligado){
+        sd->t.atual++;
+        readFrota(sd);
+        checkAgendas(sd);
+        sleep(UTEMPO);
+    }
     return NULL;
 }
 
 //FUNÇOES THREADS
-void *trataPedido(void *arg){
-    AuxiliaP *aux=(AuxiliaP *) arg;
-    ServidorData *sd=aux->sd;
-    pergunta_t pergunta=aux->pergunta; 
-    free(aux);
-
+void trataPedido(ServidorData *sd,pergunta_t pergunta){
     resposta_t resposta;
     int cFifoD;
     char ClienteFifo[50];
@@ -403,7 +463,7 @@ void *trataPedido(void *arg){
                 lista_agenda(sd,pergunta.username,cFifoD);
                 close(cFifoD);
             }
-            return NULL;
+            return;
 
         }else if(strncmp(pergunta.comando,"cancelar ",9)==0){
             int id;
@@ -435,12 +495,14 @@ void *trataPedido(void *arg){
         }
     }
 
-    cFifoD=open(ClienteFifo,O_WRONLY);
-    if(cFifoD!=-1){
-        write(cFifoD,&resposta,sizeof(resposta));
+    cFifoD = open(ClienteFifo, O_WRONLY);
+    
+    if(cFifoD != -1){
+        write(cFifoD, &resposta, sizeof(resposta));
         close(cFifoD);
+    } else {
+        perror("Erro ao abrir FIFO do cliente para resposta");
     }
-    return NULL;
 }
 
 void *atendeCliente(void *arg){
@@ -450,12 +512,6 @@ void *atendeCliente(void *arg){
 
     fprintf(stderr, "[Thread] a iniciar escuta do FIFO\n");
 
-    sd->cFifo = open(CONTROLADOR_FIFO, O_RDWR);
-    if(sd->cFifo == -1){
-        perror("[Thread] Erro ao abrir FIFO\n");
-        pthread_exit(NULL);
-    }
-
     while(sd->ligado){  //QUANDO DESLIGAR SAI DO WHILE
         res = read(sd->cFifo, &pergunta, sizeof(pergunta));
 
@@ -463,17 +519,7 @@ void *atendeCliente(void *arg){
             fprintf(stderr,"Erro na rececao de dados/n");
         }
         else{
-            AuxiliaP *nova_tarefa=malloc(sizeof(AuxiliaP));
-            
-            nova_tarefa->sd=sd;
-            nova_tarefa->pergunta=pergunta;
-            
-            pthread_t tPedido;
-            if(pthread_create(&tPedido, NULL, trataPedido, nova_tarefa) != 0){
-                perror("[ERRO] Não foi possivel criar Pedido");
-                free(nova_tarefa);
-            }
-
+            trataPedido(sd,pergunta);
         }
     }
     return NULL;
