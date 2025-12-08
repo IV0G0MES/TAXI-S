@@ -9,7 +9,26 @@ void trataSig(int i) {
 
 void *clienteEscuta(void * arg){
     AuxiliaCliente * aux = (AuxiliaCliente *) arg;
+    int clFifo = aux->cliFifo;
     resposta_t resp;
+    while(1){
+        int n = read(clFifo, &resp, sizeof(resp));
+
+        if(n > 0){
+            if(strcmp(resp.responde, "ELIMINADO") == 0 || strcmp(resp.responde, "ENCERRAR") == 0){
+                 printf("\n\n[CLIENTE] O servidor encerrou a sessão. A sair...\n");
+                 exit(EXIT_SUCCESS);
+            }
+            if(strcmp(resp.responde, "FIM")!=0){
+                printf("%s\n Comando: ", resp.responde);
+            }
+        }else if( n == 0){
+            break;
+        }else{
+            perror("Erro ao ler o fifop");
+            break;
+        }
+    }
     return NULL;
 }
 
@@ -87,7 +106,7 @@ int main(int argc, char *argv[]){
     }
     
     auxCli.cliFifo = c_fifo_fd;
-    strcpy(auxCli.fifoName, c_fifo_fd);
+    strcpy(auxCli.fifoName, c_fifo_fname);
     if(pthread_create(&thEscuta, NULL, *clienteEscuta, &auxCli)!=0){
         exit(EXIT_FAILURE);
     }
@@ -106,7 +125,7 @@ int main(int argc, char *argv[]){
         write(s_fifo_fd, &perg,sizeof(perg));
 
         
-        if(strcmp(comando,"consultar")==0){
+        /*if(strcmp(comando,"consultar")==0){
             while(1){
                 read_res=read(c_fifo_fd, &resp, sizeof(resp));
                 if(read_res!=sizeof(resp)){
@@ -128,7 +147,11 @@ int main(int argc, char *argv[]){
                 break;
             }
             printf("%s\n",resp.responde);
-        }
+        }*/
+       if(strcmp(comando, "terminar") == 0){
+        sleep(1);
+        break;
+       }
     }
     printf("\n[CLIENTE]Sessao a encerrar!\n");
     close(c_fifo_fd);
