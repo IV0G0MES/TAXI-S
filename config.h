@@ -28,14 +28,19 @@
 #define NUTILIZADORES 30
 
 /*Numero maximo de veiculos*/
-#define NVEICULOS 10
+#define NMAXVEICULOS 10
+
+/*Estados do cliente*/
+#define LIVRE 0
+#define ESPERA 1
+#define VIAGEM 2
 
 /* estrutura da mensagem correspondente a um pedido cliente -> controlador*/
 typedef struct {
     pid_t pid_cliente;
     char username[TAM_MAX];
-    char tipo_pergunta[25];
-    char comando[25];
+    char tipo_pergunta[TAM_MAX];
+    char comando[TAM_MAX];
 } pergunta_t;
 
 /* estrutura da mensagem correspondente a uma resposta controlador -> cliente */
@@ -53,24 +58,26 @@ typedef struct{
 typedef struct Agendamento{
     int id;
     int hora;
-    char local[50];
+    char local[TAM_MAX];
     int distancia;
     struct Agendamento *prox;
 } Agendamento;
 
 /* estrutura clientes*/
 typedef struct  {
-    char nome[50];
+    char nome[TAM_MAX];
     Agendamento *agenda;
-    char fName[50];
+    char fName[TAM_MAX];
+    int estado;
 } Cliente;
 
 /* estrutura veiculos*/
 typedef struct{
     int id;
     bool ocupado;
+    int iUser;
     int distanciaT;
-    char local[50];
+    char local[TAM_MAX];
     float perPercorrido;
     int fd;
     pid_t pid; //necessario para enviar o controlador enviar o sinal para cancelar
@@ -79,7 +86,8 @@ typedef struct{
 typedef struct {
     Cliente *users[NUTILIZADORES];
     int proxIdAgendamento;
-    Veiculo *carros[NVEICULOS];
+    Veiculo *carros[NMAXVEICULOS];
+    int NVEICULOS;
     Time t;
     int cFifo;
     bool ligado;
@@ -96,7 +104,7 @@ typedef struct{
 
 typedef struct{
     int cliFifo;
-    char fifoName[50];
+    char fifoName[TAM_MAX];
 } AuxiliaCliente;
 
 typedef struct{
@@ -104,7 +112,7 @@ typedef struct{
     int idCarro;
     int iUser;
 
-    char local[50];
+    char local[TAM_MAX];
     int distancia;
-    char fName[50];
+    char fName[TAM_MAX];
 }AuxiliaLaunch;

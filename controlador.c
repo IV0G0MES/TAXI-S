@@ -8,8 +8,28 @@ void trataSig(int i) {
 }
 
 //INICIALIZAÇÕES
+int getVA(ServidorData *sd){
+    char *va=getenv("NVEICULOS");
+    if (va != NULL) {
+        if (atoi(va) < 0) {
+            fprintf(stderr, "Erro - A variavel de ambiente NVEICULOS apresenta um valor invalido\n");
+            return -1;
+        } else if(atoi(va) > 10){
+            sd->NVEICULOS=10;
+            fprintf(stderr, "A variavel de ambiente NVEICULOS apresenta um valor superior ao máximo permitido, valor alterado para 10\n");
+        }
+        else {
+            sd->NVEICULOS = atoi(va);
+        }
+    } else {
+        fprintf(stderr, "Erro - A variavel de ambiente necessaria NVEICULOS nao se encontra definida\n");
+        return -1;
+    }
+    printf("Variavel de ambiente recebida: NVEICULOS - %d",sd->NVEICULOS);
+}
+
 void preencheVeiculos(ServidorData *sd){
-    for(int i=0;i<NVEICULOS; i++){
+    for(int i=0;i<sd->NVEICULOS; i++){
         Veiculo *novo_veiculo=(Veiculo*)malloc(sizeof(Veiculo));
             if(novo_veiculo== NULL){
                 printf("Nao foi possivel criar o veiculo");
@@ -35,6 +55,7 @@ void preencheSd(ServidorData *sd){
     sd->ligado=true;
     sd->proxIdAgendamento=1;
     pthread_mutex_init(&sd->lock, NULL);
+    getVA(sd);
     preencheVeiculos(sd);
     preencheClientes(sd);
     sd->t.atual=0;
@@ -90,6 +111,7 @@ int agenda(ServidorData *sd, char* nome,int hora,char *local, int distancia){
         if(sd->users[i]!=NULL && strcmp(sd->users[i]->nome,nome)==0){
             if(sd->users[i]->agenda==NULL){
                 sd->users[i]->agenda=nova_agenda;
+                sd->users[i]->estado=ESPERA;
             }
             else{
                 Agendamento *agendamento_atual=sd->users[i]->agenda;
@@ -97,6 +119,7 @@ int agenda(ServidorData *sd, char* nome,int hora,char *local, int distancia){
                     agendamento_atual=agendamento_atual->prox;
                 }
                 agendamento_atual->prox=nova_agenda;
+                sd->users[i]->estado=ESPERA;
             }
             pthread_mutex_unlock(&sd->lock);
             return 0;
@@ -242,7 +265,7 @@ void lista_users(ServidorData *sd){
     pthread_mutex_lock(&sd->lock);
     for (int i=0;i<NUTILIZADORES;i++){
         if(sd->users[i]!=NULL){
-            printf("Utilizador N %d\nNome: %s\nNome do fifo: %s\n",i,sd->users[i]->nome,sd->users[i]->fName);
+            printf("Utilizador N %d\nNome: %s\nEstado do Cliente: %s\nNome do fifo: %s\n",i,sd->users[i]->nome,sd->users[i]->estado,sd->users[i]->fName);
         }
     }
     pthread_mutex_unlock(&sd->lock);
@@ -251,7 +274,7 @@ void lista_users(ServidorData *sd){
 void listaCarros(ServidorData *sd){
     pthread_mutex_lock(&sd->lock);
     printf("\n----- Frota-----\n");
-    for(int i=0; i<NVEICULOS; i++){
+    for(int i=0; i<sd->NVEICULOS; i++){
         printf("Veiculo %d:\nId: %d\nOcupado: %d\nLocal: %s\nDistancia: %d\n",i+1 ,sd->carros[i]->id,sd->carros[i]->ocupado,sd->carros[i]->local,sd->carros[i]->distanciaT);
     }
     pthread_mutex_unlock(&sd->lock);
@@ -277,7 +300,7 @@ void lista_agenda_admin(ServidorData *sd){
 }
 
 int checkAvailability(ServidorData *sd){
-    for(int i=0;i<NVEICULOS;i++){
+    for(int i=0;i<sd->NVEICULOS;i++){
         if(sd->carros[i]->ocupado==false){
             return sd->carros[i]->id;
         }
@@ -324,6 +347,8 @@ void *lauchCar(void *arg){
         sprintf(distanciaStr,"%d",distancia);
 
         execlp("./veiculo","veiculo",local,distanciaStr,fName,NULL);
+        perror("Ocorreu um erro na execucao do veiculo\n");
+        exit(EXIT_FAILURE);
     }
     else{//pai
         close(fd[1]);//fecha escrita
@@ -336,7 +361,9 @@ void *lauchCar(void *arg){
         sd->carros[idCarro]->pid=pid;
         sd->carros[idCarro]->ocupado=true;
         sd->carros[idCarro]->perPercorrido=0;
+        sd->carros[idCarro]->iUser=iUser;
         strcpy(sd->carros[idCarro]->local, local);
+        sd->users[iUser]->estado=VIAGEM;
 
         pthread_mutex_unlock(&sd->lock);
 
@@ -405,7 +432,7 @@ void readFrota(ServidorData *sd){
     char feedbackV[100];
     int n;
     int percentagem;
-    for(int i=0;i<NVEICULOS;i++){
+    for(int i=0;i<sd->NVEICULOS;i++){
         if (sd->carros[i]->ocupado) {
             while(true){ //ler TUDO o q tem o pipe
                 n = read(sd->carros[i]->fd, feedbackV, sizeof(feedbackV)-1); //SE NAO LER NAO BLOQUEIA PORQUE FOI ABERTO COM NONBLOCK
@@ -415,13 +442,20 @@ void readFrota(ServidorData *sd){
                     if(sscanf(feedbackV,"Percorri %d",&percentagem)==1){
                         sd->carros[i]->perPercorrido=percentagem;
                     }else if(strstr(feedbackV, "Terminei ")!=NULL){
-                        /*Funcoes para libertar veiculo*/
                         printf("O veiculo ficou livre\n");
                         break;
                     }
                 }
                 else{
                     if (n == 0) {
+                        int iUser=sd->carros[i]->iUser;
+                        if(sd->users[iUser]!=NULL){
+                            if(sd->users[iUser]->agenda==NULL){
+                                sd->users[iUser]->estado=LIVRE;
+                            }else{
+                                sd->users[iUser]->estado=ESPERA;
+                            }
+                        }
                         sd->carros[i]->ocupado = false;
                         close(sd->carros[i]->fd);
                     }
@@ -520,6 +554,8 @@ void trataPedido(ServidorData *sd,pergunta_t pergunta){
     }
 }
 
+
+
 //TEMPO
 void *tempo(void *arg){
     ServidorData *sd=(ServidorData *) arg;
@@ -527,6 +563,14 @@ void *tempo(void *arg){
         sd->t.atual++;
         readFrota(sd);
         checkAgendas(sd);
+
+        //Limpeza de veiculos "mortos"
+        while (true) {
+            pid_t pidRemover = waitpid(-1, NULL, WNOHANG);
+            if(pidRemover<=0){
+                break;
+            }
+        }
         sleep(UTEMPO);
     }
     return NULL;
@@ -565,17 +609,17 @@ void *cAdmin(void *arg){
         if(strcmp(comando, "listar") == 0){
             printf("------listar-------\n");
 
-            lista_agenda_admin(&sd);
+            lista_agenda_admin(sd);
             printf("-------------------\n");
 
         }else if(strcmp(comando,"utiliz")==0){
-            lista_users(&sd);
+            lista_users(sd);
         }else if(strcmp(comando,"frota")==0){
-            listaCarros(&sd);
+            listaCarros(sd);
         }else if(strncmp(comando,"cancelar ",9)==0){
             int id;
             if(sscanf(comando+9,"%d",&id)==1){
-                int cancela=cancelar_admin(&sd,id);
+                int cancela=cancelar_admin(sd,id);
                 if(cancela==0){
                     printf("Agenda com o id indicado eliminada com sucesso\n");
                 }else if(cancela==1){
