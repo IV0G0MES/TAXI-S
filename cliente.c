@@ -123,6 +123,10 @@ int main(int argc, char *argv[]){
             if(strcmp(resp.responde,"ELIMINADO")==0){
                 break;
             }
+            else if(strcmp(resp.responde,"ENCERRAR")){
+                printf("Controlador encerrou...\n");
+                break;
+            }
             printf("%s\n",resp.responde);
         }
     }

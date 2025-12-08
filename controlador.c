@@ -40,6 +40,8 @@ void preencheVeiculos(ServidorData *sd){
             novo_veiculo->distanciaT=0;
             strcpy(novo_veiculo->local,"");
             novo_veiculo->perPercorrido=0.0;
+            novo_veiculo->fd=-1;
+            novo_veiculo->fd=-1;
             sd->carros[i]=novo_veiculo;
     }
     printf("Vetor veiculos preenchido");
@@ -148,9 +150,8 @@ int cancelar(ServidorData *sd,char*nome,int id){
                 }
                 sd->users[i]->agenda=NULL;
                 for(int j=0;j<sd->NVEICULOS;j++){
-                    if(sd->carros[j]->ocupado==true && sd->carros[j]->pid>0){
+                    if(sd->carros[j]->ocupado==true && sd->carros[j]->pid>0 &&sd->carros[j]->iUser==i){
                         kill(sd->carros[j]->pid, SIGUSR1);
-                        waitpid(sd->carros[j]->pid, NULL, 0);
                     }
                 }
                 pthread_mutex_unlock(&sd->lock);
@@ -168,9 +169,8 @@ int cancelar(ServidorData *sd,char*nome,int id){
                         free(atual);
 
                         for(int j=0;j<sd->NVEICULOS;j++){
-                            if(sd->carros[j]->ocupado==true && sd->carros[j]->pid>0 && sd->carros[j]->iUser==sd->users[i]->nome){
+                            if(sd->carros[j]->ocupado==true && sd->carros[j]->pid>0 && sd->carros[j]->iUser==i){
                                 kill(sd->carros[j]->pid, SIGUSR1);
-                                waitpid(sd->carros[j]->pid, NULL, 0);
                             }
                         }
                         pthread_mutex_unlock(&sd->lock);
@@ -250,6 +250,11 @@ int cancelar_admin(ServidorData *sd, int id) {
                 }
                 sd->users[i]->agenda = NULL;
             }
+            for(int j=0;j<sd->NVEICULOS;j++){
+                if(sd->carros[j]->ocupado==true && sd->carros[j]->pid>0 &&sd->carros[j]->iUser==i){
+                    kill(sd->carros[j]->pid, SIGUSR1);
+                }
+            }
         }
         pthread_mutex_unlock(&sd->lock);
         return 2;
@@ -266,6 +271,12 @@ int cancelar_admin(ServidorData *sd, int id) {
                         anterior->prox = atual->prox;
                     }
                     free(atual);
+
+                    for(int j=0;j<sd->NVEICULOS;j++){
+                        if(sd->carros[j]->ocupado==true && sd->carros[j]->pid>0 &&sd->carros[j]->iUser==i){
+                            kill(sd->carros[j]->pid, SIGUSR1);
+                        }
+                    }
                     pthread_mutex_unlock(&sd->lock);
                     return 0;
                 }
@@ -708,6 +719,7 @@ int main(){
 
     pthread_join(sd.tAdmin, NULL);
     printf("\nControlador a encerrar!\n");
+    pthread_cancel(sd.tRecebe); //Necessario acordar a thread que esta presa no read
     pthread_join(sd.tRecebe, NULL);
     pthread_join(sd.tTime, NULL);
 
@@ -720,9 +732,39 @@ int main(){
         if(sd.carros[i]->fd!=-1){
             close(sd.carros[i]->fd);
         }
+        free(sd.carros[i]);
+        sd.carros[i] = NULL;
     }
-    //Limpar os clientes e todas as agendas
+
+    //Avisar os clientes para eles fecharem
+    resposta_t aviso;
+    strncpy(aviso.responde, "ENCERRAR", TAM_MAX-1);
+    aviso.responde[TAM_MAX-1] = '\0';
+
+    for (int i = 0; i < NUTILIZADORES; i++) {
+        if (sd.users[i] != NULL) {
+            int fdcli = open(sd.users[i]->fName, O_WRONLY | O_NONBLOCK);
+            if (fdcli != -1) {
+                write(fdcli, &aviso, sizeof(aviso));
+                close(fdcli);
+            }
+        }
+    }
     
+    //Libertar a memoria dos clientes e agendas
+    for (int i = 0; i < NUTILIZADORES; i++) {
+        if (sd.users[i] != NULL) {
+        Agendamento *agenda = sd.users[i]->agenda;
+        while (agenda != NULL) {
+            Agendamento *prox = agenda->prox;
+            free(agenda);
+            agenda = prox;
+        }
+        free(sd.users[i]);
+        }
+    }   
+    
+    pthread_mutex_destroy(&sd.lock);
     close(sd.cFifo);
     unlink(CONTROLADOR_FIFO);
     return 0;
