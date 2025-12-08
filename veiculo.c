@@ -48,7 +48,7 @@ int main(int agrc, char *argv[]){
 
     resposta_t msg;
     //INICIO DA VIAGEM
-    snprintf(msg.responde, TAM_MAX, "[VEICULO]Inicio da viagem para %s",local);
+    snprintf(msg.responde, TAM_BUFFER, "[VEICULO]Inicio da viagem para %s",local);
     msg.criado=true;
     write(fdCliente, &msg, sizeof(msg));
 

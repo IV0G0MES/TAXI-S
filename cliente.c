@@ -7,31 +7,6 @@ void trataSig(int i) {
     fprintf(stderr, "Para terminar a sua sessao utilize o comando terminar\n");
 }
 
-void *clienteEscuta(void * arg){
-    AuxiliaCliente * aux = (AuxiliaCliente *) arg;
-    int clFifo = aux->cliFifo;
-    resposta_t resp;
-    while(1){
-        int n = read(clFifo, &resp, sizeof(resp));
-
-        if(n > 0){
-            if(strcmp(resp.responde, "ELIMINADO") == 0 || strcmp(resp.responde, "ENCERRAR") == 0){
-                 printf("\n\n[CLIENTE] O servidor encerrou a sessão. A sair...\n");
-                 exit(EXIT_SUCCESS);
-            }
-            if(strcmp(resp.responde, "FIM")!=0){
-                printf("%s\n Comando: ", resp.responde);
-            }
-        }else if( n == 0){
-            break;
-        }else{
-            perror("Erro ao ler o fifop");
-            break;
-        }
-    }
-    return NULL;
-}
-
 int main(int argc, char *argv[]){
     pergunta_t perg;/* mensagem do "tipo" pergunta */
     resposta_t resp;/* mensagem do "tipo" resposta */
@@ -39,15 +14,13 @@ int main(int argc, char *argv[]){
     char c_fifo_fname[25];          /* nome do FIFO deste cliente */
     int read_res;
     char comando[50];
-    pthread_t thEscuta;
-    AuxiliaCliente auxCli;
 
     //fflush(stdout);
     if(argc!=2){
         printf("[CLIENTE]Precisa de indicar um nome de utilizador!!!\n");
         exit(EXIT_FAILURE);
     }
-
+    
     if (signal(SIGINT,trataSig) == SIG_ERR) {
         perror("[CLIENTE]Nao foi possivel configurar o sinal SIGINT\n");
         exit(EXIT_FAILURE);
@@ -105,53 +78,83 @@ int main(int argc, char *argv[]){
         exit(EXIT_FAILURE);
     }
     
-    auxCli.cliFifo = c_fifo_fd;
-    strcpy(auxCli.fifoName, c_fifo_fname);
-    if(pthread_create(&thEscuta, NULL, *clienteEscuta, &auxCli)!=0){
-        exit(EXIT_FAILURE);
-    }
-    
+    //Variaveis Select
+    fd_set readFd;
+    int max;
+    int nfd;
+    printf("Comando: ");
+    fflush(stdout);
+
     while(1){
+
+        FD_ZERO(&readFd);
+        FD_SET(STDIN_FILENO,&readFd);
+        FD_SET(c_fifo_fd,&readFd);
+        if(STDIN_FILENO>c_fifo_fd){
+            max=STDIN_FILENO+1;
+        }else{
+            max=c_fifo_fd+1;
+        }
+
+        nfd=select(max,&readFd,NULL,NULL,NULL);
+        if(nfd==-1){
+            if(errno==EINTR){
+                continue;
+            }
+            perror("Erro no select\n");
+            close(c_fifo_fd);
+            close(s_fifo_fd);
+            unlink(c_fifo_fname);
+            exit(EXIT_FAILURE);
+        }
+        if(FD_ISSET(STDIN_FILENO,&readFd)){
+            if(fgets(comando,sizeof(comando),stdin)==NULL){
+                break;
+            }
+            comando[strcspn(comando, "\n")] = '\0';
+            if(strlen(comando) > 0){
+                perg.pid_cliente=getpid();
+                strcpy(perg.username,argv[1]);
+                strcpy(perg.tipo_pergunta,"COMANDO");
+                strcpy(perg.comando,comando);
+                write(s_fifo_fd, &perg,sizeof(perg));
+            }
+        }
+        if(FD_ISSET(c_fifo_fd,&readFd)){
+            resposta_t resp;
+            read_res=read(c_fifo_fd, &resp, sizeof(resp));
+            if(read_res > 0){
+                if(strcmp(resp.responde, "INICIO")==0){
+                    while(1){
+                        read_res=read(c_fifo_fd, &resp, sizeof(resp));
+                        if(read_res!=sizeof(resp)){
+                            fprintf(stderr,"Erro na rececao de dados\n");
+                            break;
+                        }
+                        if(strcmp(resp.responde,"FIM")==0){
+                            break;
+                        }
+                        printf("%s\n",resp.responde);
+                    }
+                }else{
+                    if(strcmp(resp.responde, "ENCERRAR") == 0){
+                        printf("\n\n[CLIENTE] O servidor encerrou a sessão. A sair...\n");
+                        break;
+                    }else if(strcmp(resp.responde, "ELIMINADO") == 0){
+                        printf("[CLIENTE]A terminar sessao...\n");
+                        break;
+                    }
+                    printf("%s\n",resp.responde);
+                }
+            }else if( read_res == 0){
+                break;
+            }else{
+                perror("Erro ao ler o fifo");
+                break;
+            }
+        }
         printf("Comando: ");
         fflush(stdout);
-        if(fgets(comando,sizeof(comando),stdin)==NULL)
-            break;
-        comando[strcspn(comando, "\n")] = '\0';
-    
-        perg.pid_cliente=getpid();
-        strcpy(perg.username,argv[1]);
-        strcpy(perg.tipo_pergunta,"COMANDO");
-        strcpy(perg.comando,comando);
-        write(s_fifo_fd, &perg,sizeof(perg));
-
-        
-        /*if(strcmp(comando,"consultar")==0){
-            while(1){
-                read_res=read(c_fifo_fd, &resp, sizeof(resp));
-                if(read_res!=sizeof(resp)){
-                    fprintf(stderr,"Erro na rececao de dados/n");
-                    break;
-                }
-                if(strcmp(resp.responde,"FIM")==0){
-                    break;
-                }
-                printf("%s\n",resp.responde);
-            }
-        }else{
-            read(c_fifo_fd, &resp, sizeof(resp));
-            if(strcmp(resp.responde,"ELIMINADO")==0){
-                break;
-            }
-            else if(strcmp(resp.responde,"ENCERRAR")){
-                printf("Controlador encerrou...\n");
-                break;
-            }
-            printf("%s\n",resp.responde);
-        }*/
-       if(strcmp(comando, "terminar") == 0){
-        sleep(1);
-        break;
-       }
     }
     printf("\n[CLIENTE]Sessao a encerrar!\n");
     close(c_fifo_fd);

@@ -194,6 +194,8 @@ int cancelar(ServidorData *sd,char*nome,int id){
 void lista_agenda(ServidorData *sd,char *nome,int cFifoD){
     resposta_t resposta;
     pthread_mutex_lock(&sd->lock);
+    snprintf(resposta.responde,sizeof(resposta.responde),"INICIO");
+    write(cFifoD,&resposta,sizeof(resposta));
     for(int i=0;i<NUTILIZADORES;i++){
         if(sd->users[i]!=NULL && strcmp(sd->users[i]->nome,nome)==0){
             if(sd->users[i]->agenda!=NULL){
