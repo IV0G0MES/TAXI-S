@@ -3,18 +3,14 @@
 int fdCliente = -1;
 
 void trataSinal(int i){
-    /*if(i == SIGUSR1){
-        //controlador manda cancelar 
-        if(fdCliente != -1){
-            resposta_t msg;
-            strcpy(msg.responde,"[VEICULO] Viagem canelado pelo admin");
-            msg.criado=false;
-            write(fdCliente, &msg, sizeof(msg));
-            close(fdCliente);
-        }
+    //controlador manda cancelar 
+    if(fdCliente != -1){
+        resposta_t msg;
+        strcpy(msg.responde,"[VEICULO] Viagem canelado pelo admin");
+        msg.criado=false;
+        write(fdCliente, &msg, sizeof(msg));
+        close(fdCliente);
     }
-    printf("CANCELADO\n");
-    fflush(stdout);*/
     exit(EXIT_SUCCESS);
 }
 
@@ -25,20 +21,22 @@ int main(int agrc, char *argv[]){
         return -1;
     }
 
-    char fifo_cliente[50];
-    char local[50];
+    char fifo_cliente[TAM_MAX];
+    char local[TAM_MAX];
     int distancia = atoi(argv[2]);
     strcpy(local, argv[1]);
+    local[TAM_MAX-1]='\0';
     strcpy(fifo_cliente, argv[3]);
+    fifo_cliente[TAM_MAX-1]='\0';
     
     
     //abre o fifo do cliente
-    int fdCli = open(fifo_cliente, O_WRONLY);
-    if(fdCli == -1){
-        printf("[VEICULO] ERRO ao tentar abrir o FIFO do cliente");
+    fdCliente = open(fifo_cliente, O_WRONLY);
+    if(fdCliente == -1){
+        printf("[VEICULO]ERRO ao tentar abrir o FIFO do cliente");
         return -1;
     }
-    printf("Consegui abrir o fifo do cliente!!!!!\n");
+    printf("[VEICULO]Consegui abrir o fifo do cliente!!!!!\n");
     
     //sinal SIGURS1
     if(signal(SIGUSR1, trataSinal) == SIG_ERR){
@@ -50,12 +48,10 @@ int main(int agrc, char *argv[]){
 
     resposta_t msg;
     //INICIO DA VIAGEM
-    snprintf(msg.responde, TAM_MAX, "O veiculo a iniciar viagem apartir do local '%s'", local);
+    snprintf(msg.responde, TAM_MAX, "[VEICULO]Inicio da viagem para %s",local);
     msg.criado=true;
-    write(fdCli, &msg, sizeof(msg));
+    write(fdCliente, &msg, sizeof(msg));
 
-    //printf("INICIO\n");
-    //fflush(stdout);
     int kms = 0;
     int lastReport = 0;
     while(kms < distancia){
@@ -65,19 +61,16 @@ int main(int agrc, char *argv[]){
         int distPerc = (kms*100) / distancia;
         while(distPerc >= lastReport + 10){
             lastReport +=10;
-            printf("PERCORREU %d\n", lastReport);
-            //fflush(stdout);
+            printf("[VEICULO]Percorri %d\n", lastReport);
+            fflush(stdout);
         }        
     }
-    //Logica da viagem em si
     
-    //FIM DA VIAGEM
-    //printf("FIM\n");
-    //fflush(stdout);
-    
-    snprintf(msg.responde, TAM_MAX, "O veiculo chegou ao local '%s'. Viagem completa", local);
-    write(fdCli, &msg, sizeof(msg));
-    close(fdCli);
-    return 0;
+    snprintf(msg.responde, TAM_MAX, "[VEICULO]Terminei a viagem");
+    write(fdCliente, &msg, sizeof(msg));
 
+    printf("[VEICULO]Terminei a viagem\n"); 
+    fflush(stdout);
+    close(fdCliente);
+    return 0;
 }

@@ -42,7 +42,7 @@ void preencheVeiculos(ServidorData *sd){
             strcpy(novo_veiculo->local,"");
             novo_veiculo->perPercorrido=0.0;
             novo_veiculo->fd=-1;
-            novo_veiculo->fd=-1;
+            novo_veiculo->pid=-1;
             sd->carros[i]=novo_veiculo;
     }
     printf("Vetor veiculos preenchido");
@@ -469,13 +469,13 @@ void readFrota(ServidorData *sd){
                 n = read(sd->carros[i]->fd, feedbackV, sizeof(feedbackV)-1); //SE NAO LER NAO BLOQUEIA PORQUE FOI ABERTO COM NONBLOCK
                 if (n > 0) {
                     feedbackV[n] = '\0';
-                    printf("[VEICULO] Carro ID %d diz: %s\n", sd->carros[i]->id, feedbackV);
-                    if(sscanf(feedbackV,"Percorri %d",&percentagem)==1){
+                    printf("Carro ID %d diz: %s\n", sd->carros[i]->id, feedbackV);
+                    if(sscanf(feedbackV,"[VEICULO]Percorri %d",&percentagem)==1){
                         pthread_mutex_lock(&sd->lock);
                         sd->carros[i]->perPercorrido=percentagem;
                         pthread_mutex_unlock(&sd->lock);
-                    }else if(strstr(feedbackV, "Terminei ")!=NULL){
-                        printf("O veiculo ficou livre\n");
+                    }else if(strstr(feedbackV, "[VEICULO]Terminei ")!=NULL){
+                        printf("[CONTROLADOR]O veiculo ficou livre\n");
                         break;
                     }
                 }
