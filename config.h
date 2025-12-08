@@ -6,6 +6,7 @@
 #include <limits.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <ctype.h>
 #include <stdbool.h>
 #include <signal.h> 
@@ -23,6 +24,9 @@
 
 /* tamanho máximo de cada palavra */
 #define TAM_MAX 100
+
+/*tamanho do buffer*/
+#define TAM_BUFFER 512
 
 /*Numero máximo de utilizadores*/
 #define NUTILIZADORES 30
@@ -45,7 +49,7 @@ typedef struct {
 
 /* estrutura da mensagem correspondente a uma resposta controlador -> cliente */
 typedef struct {
-    char responde[TAM_MAX];
+    char responde[TAM_BUFFER];
     bool criado;
 } resposta_t;
 

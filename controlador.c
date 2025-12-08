@@ -26,6 +26,7 @@ int getVA(ServidorData *sd){
         return -1;
     }
     printf("Variavel de ambiente recebida: NVEICULOS - %d",sd->NVEICULOS);
+    return 0;
 }
 
 void preencheVeiculos(ServidorData *sd){
@@ -58,7 +59,9 @@ void preencheSd(ServidorData *sd){
     sd->proxIdAgendamento=1;
     sd->proxIdUser=1;
     pthread_mutex_init(&sd->lock, NULL);
-    getVA(sd);
+    if(getVA(sd)==-1){
+        exit(EXIT_FAILURE);
+    }
     preencheVeiculos(sd);
     preencheClientes(sd);
     sd->t.atual=0;
@@ -293,7 +296,7 @@ void lista_users(ServidorData *sd){
     pthread_mutex_lock(&sd->lock);
     for (int i=0;i<NUTILIZADORES;i++){
         if(sd->users[i]!=NULL){
-            printf("Utilizador Id: %d\nNome: %s\nEstado do Cliente: %s\nNome do fifo: %s\n",sd->users[i]->iUser,sd->users[i]->nome,sd->users[i]->estado,sd->users[i]->fName);
+            printf("Utilizador Id: %d\nNome: %s\nEstado do Cliente: %d\nNome do fifo: %s\n",sd->users[i]->iUser,sd->users[i]->nome,sd->users[i]->estado,sd->users[i]->fName);
         }
     }
     pthread_mutex_unlock(&sd->lock);
@@ -675,7 +678,7 @@ void *cAdmin(void *arg){
             printf("Comando errado\n");
         }
     }
-
+    return NULL;
 }
 
 int main(){
