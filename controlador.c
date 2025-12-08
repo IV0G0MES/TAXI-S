@@ -104,14 +104,14 @@ int verificaUser(ServidorData *sd,char *nome,char *nomeFifo){
 
 int agenda(ServidorData *sd, char* nome,int hora,char *local, int distancia){
     Agendamento *nova_agenda=malloc(sizeof(Agendamento));
-    nova_agenda->id=sd->proxIdAgendamento;
     nova_agenda->hora=hora;
     strcpy(nova_agenda->local,local);
     nova_agenda->distancia=distancia;
     nova_agenda->prox=NULL;
-    sd->proxIdAgendamento++;
     
     pthread_mutex_lock(&sd->lock);
+    nova_agenda->id=sd->proxIdAgendamento;
+    sd->proxIdAgendamento++;
 
     for(int i=0;i<NUTILIZADORES;i++){
         if(sd->users[i]!=NULL && strcmp(sd->users[i]->nome,nome)==0){
@@ -468,7 +468,9 @@ void readFrota(ServidorData *sd){
                     feedbackV[n] = '\0';
                     printf("[VEICULO] Carro ID %d diz: %s\n", sd->carros[i]->id, feedbackV);
                     if(sscanf(feedbackV,"Percorri %d",&percentagem)==1){
+                        pthread_mutex_lock(&sd->lock);
                         sd->carros[i]->perPercorrido=percentagem;
+                        pthread_mutex_unlock(&sd->lock);
                     }else if(strstr(feedbackV, "Terminei ")!=NULL){
                         printf("O veiculo ficou livre\n");
                         break;
@@ -476,6 +478,7 @@ void readFrota(ServidorData *sd){
                 }
                 else{
                     if (n == 0) {
+                        pthread_mutex_lock(&sd->lock);
                         int iUser=sd->carros[i]->iUser;
                         if(sd->users[iUser]!=NULL){
                             if(sd->users[iUser]->agenda==NULL){
@@ -486,6 +489,8 @@ void readFrota(ServidorData *sd){
                         }
                         sd->carros[i]->ocupado = false;
                         close(sd->carros[i]->fd);
+                        sd->carros[i]->fd=-1;
+                        pthread_mutex_unlock(&sd->lock);
                     }
                     else if (errno != EAGAIN) { //SE FOR EAGAIN É SINAL QUE O CARRO NAO MANDOU NADA
                             perror("Erro no pipe");
