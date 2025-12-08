@@ -54,6 +54,7 @@ void preencheClientes(ServidorData *sd){
 void preencheSd(ServidorData *sd){
     sd->ligado=true;
     sd->proxIdAgendamento=1;
+    sd->proxIdUser=1;
     pthread_mutex_init(&sd->lock, NULL);
     getVA(sd);
     preencheVeiculos(sd);
@@ -82,9 +83,12 @@ int verificaUser(ServidorData *sd,char *nome,char *nomeFifo){
                 pthread_mutex_unlock(&sd->lock);
                 return 2;
             }
+            ptr->iUser=sd->proxIdUser;
+            sd->proxIdUser++;
             strcpy(ptr->nome,nome);
             ptr->agenda=NULL;
             strcpy(ptr->fName,nomeFifo);
+            ptr->estado=LIVRE;
             sd->users[i]=ptr;
             printf("Cliente criado com sucesso\n");
             pthread_mutex_unlock(&sd->lock);
@@ -143,6 +147,12 @@ int cancelar(ServidorData *sd,char*nome,int id){
                     aux = aux2;
                 }
                 sd->users[i]->agenda=NULL;
+                for(int j=0;j<sd->NVEICULOS;j++){
+                    if(sd->carros[j]->ocupado==true && sd->carros[j]->pid>0){
+                        kill(sd->carros[j]->pid, SIGUSR1);
+                        waitpid(sd->carros[j]->pid, NULL, 0);
+                    }
+                }
                 pthread_mutex_unlock(&sd->lock);
                 return 2;
             }else{
@@ -156,6 +166,13 @@ int cancelar(ServidorData *sd,char*nome,int id){
                             anterior->prox=atual->prox;
                         }
                         free(atual);
+
+                        for(int j=0;j<sd->NVEICULOS;j++){
+                            if(sd->carros[j]->ocupado==true && sd->carros[j]->pid>0 && sd->carros[j]->iUser==sd->users[i]->nome){
+                                kill(sd->carros[j]->pid, SIGUSR1);
+                                waitpid(sd->carros[j]->pid, NULL, 0);
+                            }
+                        }
                         pthread_mutex_unlock(&sd->lock);
                         return 0;
                     }
@@ -265,7 +282,7 @@ void lista_users(ServidorData *sd){
     pthread_mutex_lock(&sd->lock);
     for (int i=0;i<NUTILIZADORES;i++){
         if(sd->users[i]!=NULL){
-            printf("Utilizador N %d\nNome: %s\nEstado do Cliente: %s\nNome do fifo: %s\n",i,sd->users[i]->nome,sd->users[i]->estado,sd->users[i]->fName);
+            printf("Utilizador Id: %d\nNome: %s\nEstado do Cliente: %s\nNome do fifo: %s\n",sd->users[i]->iUser,sd->users[i]->nome,sd->users[i]->estado,sd->users[i]->fName);
         }
     }
     pthread_mutex_unlock(&sd->lock);
@@ -691,6 +708,20 @@ int main(){
 
     pthread_join(sd.tAdmin, NULL);
     printf("\nControlador a encerrar!\n");
+    pthread_join(sd.tRecebe, NULL);
+    pthread_join(sd.tTime, NULL);
+
+    //Mandar os carros abaixo
+    for(int i=0;i<sd.NVEICULOS;i++){
+        if(sd.carros[i]->ocupado==true && sd.carros[i]->pid>0){
+            kill(sd.carros[i]->pid, SIGUSR1);
+            waitpid(sd.carros[i]->pid, NULL, 0);
+        }
+        if(sd.carros[i]->fd!=-1){
+            close(sd.carros[i]->fd);
+        }
+    }
+    //Limpar os clientes e todas as agendas
     
     close(sd.cFifo);
     unlink(CONTROLADOR_FIFO);

@@ -65,6 +65,7 @@ typedef struct Agendamento{
 
 /* estrutura clientes*/
 typedef struct  {
+    int iUser;
     char nome[TAM_MAX];
     Agendamento *agenda;
     char fName[TAM_MAX];
@@ -74,6 +75,7 @@ typedef struct  {
 /* estrutura veiculos*/
 typedef struct{
     int id;
+    int idAgenda;
     bool ocupado;
     int iUser;
     int distanciaT;
@@ -86,6 +88,7 @@ typedef struct{
 typedef struct {
     Cliente *users[NUTILIZADORES];
     int proxIdAgendamento;
+    int proxIdUser;
     Veiculo *carros[NMAXVEICULOS];
     int NVEICULOS;
     Time t;

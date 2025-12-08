@@ -18,17 +18,19 @@ int main(int argc, char *argv[]){
     resposta_t resp;/* mensagem do "tipo" resposta */
     int s_fifo_fd, c_fifo_fd;       /* descritores de ficheiros (pipes) */
     char c_fifo_fname[25];          /* nome do FIFO deste cliente */
-
     int read_res;
     char comando[50];
-    fflush(stdout);
+    pthread_t thEscuta;
+    AuxiliaCliente auxCli;
+
+    //fflush(stdout);
     if(argc!=2){
-        printf("Precisa de indicar um nome de utilizador!!!\n");
+        printf("[CLIENTE]Precisa de indicar um nome de utilizador!!!\n");
         exit(EXIT_FAILURE);
     }
 
     if (signal(SIGINT,trataSig) == SIG_ERR) {
-        perror("Nao foi possivel configurar o sinal SIGINT\n");
+        perror("[CLIENTE]Nao foi possivel configurar o sinal SIGINT\n");
         exit(EXIT_FAILURE);
     }
     fprintf(stderr, "Sinal SIGINT configurado\n");
@@ -40,7 +42,7 @@ int main(int argc, char *argv[]){
         unlink(c_fifo_fname);
         exit(EXIT_FAILURE);
     }
-    fprintf(stderr,"\nFIFO do servidor aberto WRITE / BLOCKING\n");
+    fprintf(stderr,"\n[CLIENTE]FIFO do servidor aberto WRITE / BLOCKING\n");
 
     //Abre fifo para comunicar com controlador
      /* cria o FIFO do cliente */
@@ -77,25 +79,33 @@ int main(int argc, char *argv[]){
             exit(EXIT_FAILURE);
         }
     }else{
-        printf("Erro de comunicacao com o servidor");
+        printf("[CLIENTE]Erro de comunicacao com o servidor");
         close(c_fifo_fd);
         close(s_fifo_fd);
         unlink(c_fifo_fname);
         exit(EXIT_FAILURE);
     }
     
+    auxCli.cliFifo = c_fifo_fd;
+    strcpy(auxCli.fifoName, c_fifo_fd);
+    if(pthread_create(&thEscuta, NULL, *clienteEscuta, &auxCli)!=0){
+        exit(EXIT_FAILURE);
+    }
     
     while(1){
         printf("Comando: ");
+        fflush(stdout);
         if(fgets(comando,sizeof(comando),stdin)==NULL)
             break;
         comando[strcspn(comando, "\n")] = '\0';
-
+    
         perg.pid_cliente=getpid();
         strcpy(perg.username,argv[1]);
         strcpy(perg.tipo_pergunta,"COMANDO");
         strcpy(perg.comando,comando);
-        write(s_fifo_fd,& perg,sizeof(perg));
+        write(s_fifo_fd, &perg,sizeof(perg));
+
+        
         if(strcmp(comando,"consultar")==0){
             while(1){
                 read_res=read(c_fifo_fd, &resp, sizeof(resp));
@@ -116,7 +126,7 @@ int main(int argc, char *argv[]){
             printf("%s\n",resp.responde);
         }
     }
-    printf("\nSessao a encerrar!\n");
+    printf("\n[CLIENTE]Sessao a encerrar!\n");
     close(c_fifo_fd);
     close(s_fifo_fd);
     unlink(c_fifo_fname);
