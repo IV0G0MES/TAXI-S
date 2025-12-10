@@ -355,7 +355,9 @@ void *lauchCar(void *arg){
     char fName[50];
     strcpy(fName,aux->fName);
     free(aux);
-    
+
+    sd->carros[idCarro]->distanciaT += distancia;
+
     pthread_mutex_unlock(&sd->lock);
 
     int fd[2];
@@ -674,9 +676,20 @@ void *cAdmin(void *arg){
             }
             
         }else if(strcmp(comando,"km")==0){
-            printf("Estou no km\n");
+            int somaKm;
+            //printf("Estou no km\n");
+            pthread_mutex_lock(&sd->lock);
+            for(int i = 0; i < sd->NVEICULOS; i++){
+                somaKm += sd->carros[i]->distanciaT;
+                printf("Veiculo %d: %dkm\n", sd->carros[i]->id, sd->carros[i]->distanciaT);
+            }
+            printf("Total de kms da frota: %d\n", somaKm);
+            pthread_mutex_unlock(&sd->lock);
         }else if(strcmp(comando,"hora")==0){
-            printf("Estou na hora\n");
+            pthread_mutex_lock(&sd->lock);
+            int hour = sd->t.atual;
+            pthread_mutex_unlock(&sd->lock);
+            printf("Hora atual: %d\n", hour);
         }else if(strcmp(comando,"terminar")==0){
             sd->ligado=false;
            break;
