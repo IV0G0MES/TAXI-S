@@ -601,10 +601,6 @@ void *tempo(void *arg){
     ServidorData *sd=(ServidorData *) arg;
     while(sd->ligado){
         sd->t.atual++;
-        if(sd->t.atual % 5 == 0){
-            printf("Horas %d\n", sd->t.atual);
-            fflush(stdout);
-        }
         readFrota(sd);
         checkAgendas(sd);
 
