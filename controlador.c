@@ -609,7 +609,7 @@ void *tempo(void *arg){
             pid_t pidRemover = waitpid(-1, NULL, WNOHANG);
             if(pidRemover<=0){
                 break;
-            }
+            }//FALTA TERMINAR AS THREADS DOS VEICULOS MORTOS!!
         }
         sleep(UTEMPO);
     }
@@ -742,11 +742,11 @@ int main(){
 
     pthread_join(sd.tAdmin, NULL);
     printf("\nControlador a encerrar!\n");
-    pthread_cancel(sd.tRecebe); //Necessario acordar a thread que esta presa no read
+    pthread_cancel(sd.tRecebe); //Necessario acordar a thread que esta presa no read PROIBIDO!!->É SUPOSTO USAR PTHREAD_KILL 
     pthread_join(sd.tRecebe, NULL);
     pthread_join(sd.tTime, NULL);
 
-    //Mandar os carros abaixo
+    //Mandar terminar os carros
     for(int i=0;i<sd.NVEICULOS;i++){
         if(sd.carros[i]->ocupado==true && sd.carros[i]->pid>0){
             kill(sd.carros[i]->pid, SIGUSR1);
@@ -792,3 +792,5 @@ int main(){
     unlink(CONTROLADOR_FIFO);
     return 0;
 }
+
+//TRATAR O SIGPIPE PARA NAO MORRER O CONTROLADOR DO NADA (SIGPIPE SO É ACIONADO CASO TENTE ESCREVER PARA UM PIPE QUE DO OUTRO LADO JA ESTA FECHADO)
