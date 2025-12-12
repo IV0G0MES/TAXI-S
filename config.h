@@ -91,15 +91,18 @@ typedef struct{
 } Veiculo;
 
 typedef struct {
+    pthread_mutex_t lock;
     Cliente *users[NUTILIZADORES];
     int proxIdAgendamento;
     int proxIdUser;
     Veiculo *carros[NMAXVEICULOS];
     int NVEICULOS;
-    Time t;
     int cFifo;
     bool ligado;
-    pthread_mutex_t lock;
+    pthread_mutex_t lHora;
+    Time t;
+    pthread_mutex_t lTotalKms;
+
     pthread_t tRecebe;
     pthread_t tTime;
     pthread_t tAdmin;

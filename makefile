@@ -2,13 +2,18 @@ CC=gcc
 
 CFLAGS= -Wall -g 
 
-PROGS=controlador cliente veiculo
+PROGS=pasta controlador cliente veiculo
 
 HEADERS= config.h 
 
 TARGETS= controlador cliente veiculo
 
+PASTA="fifos"
+
 all:$(PROGS)
+
+pasta: 
+	mkdir -p $(PASTA)
 
 controlador: controlador.c $(HEADERS)
 	$(CC) $(CFLAGS) -o controlador controlador.c

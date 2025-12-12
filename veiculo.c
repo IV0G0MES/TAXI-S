@@ -40,7 +40,7 @@ int main(int agrc, char *argv[]){
     
     //sinal SIGURS1
     if(signal(SIGUSR1, trataSinal) == SIG_ERR){
-        perror("Erro no SIGURS1\n");
+        perror("[VEICULO]Erro no SIGURS1\n");
         exit(EXIT_FAILURE);
     }
     signal(SIGINT, SIG_IGN); // ingora ctrl+c
