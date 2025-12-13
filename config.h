@@ -87,7 +87,8 @@ typedef struct{
     char local[TAM_MAX];
     float perPercorrido;
     int fd;
-    pid_t pid; //necessario para enviar o controlador enviar o sinal para cancelar
+    pid_t pid;
+    pthread_t tid;
 } Veiculo;
 
 typedef struct {
@@ -102,7 +103,7 @@ typedef struct {
     pthread_mutex_t lHora;
     Time t;
     pthread_mutex_t lTotalKms;
-
+    int totalKms;
     pthread_t tRecebe;
     pthread_t tTime;
     pthread_t tAdmin;

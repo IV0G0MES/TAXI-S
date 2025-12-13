@@ -4,7 +4,7 @@
 
 /* esta função vai atender o sinal SIGINT para terminar o servidor */
 void trataSig(int i) {
-    fprintf(stderr, "Para terminar a sua sessao utilize o comando terminar\n");
+    fprintf(stderr, "[CLIENTE] Para terminar a sua sessao utilize o comando terminar\n");
 }
 
 int main(int argc, char *argv[]){
@@ -17,43 +17,43 @@ int main(int argc, char *argv[]){
 
     //fflush(stdout);
     if(argc!=2){
-        printf("[CLIENTE]Precisa de indicar um nome de utilizador!!!\n");
+        printf("[CLIENTE] Precisa de indicar um nome de utilizador!!!\n");
         exit(EXIT_FAILURE);
     }
     
     if (signal(SIGINT,trataSig) == SIG_ERR) {
-        perror("[CLIENTE]Nao foi possivel configurar o sinal SIGINT\n");
+        perror("[CLIENTE] Nao foi possivel configurar o sinal SIGINT\n");
         exit(EXIT_FAILURE);
     }
-    fprintf(stderr, "Sinal SIGINT configurado\n");
+    fprintf(stderr, "[CLIENTE] Sinal SIGINT configurado\n");
 
     //Verificação controlador ativo
     s_fifo_fd = open(CONTROLADOR_FIFO, O_WRONLY);
     if (s_fifo_fd == -1) {
-        fprintf(stderr, "O servidor não está a correr\n");
+        fprintf(stderr, "[CLIENTE] O servidor não está a correr\n");
         unlink(c_fifo_fname);
         exit(EXIT_FAILURE);
     }
-    fprintf(stderr,"\n[CLIENTE]FIFO do servidor aberto WRITE / BLOCKING\n");
+    fprintf(stderr,"\n[CLIENTE] FIFO do servidor aberto WRITE / BLOCKING\n");
 
     //Abre fifo para comunicar com controlador
      /* cria o FIFO do cliente */
     perg.pid_cliente = getpid();
     sprintf(c_fifo_fname, CLIENTE_FIFO, perg.pid_cliente);
     if (mkfifo(c_fifo_fname, 0777) == -1) {
-        perror("\nmkfifo FIFO cliente deu erro\n");
+        perror("\n[CLIENTE] mkfifo FIFO cliente deu erro\n");
         exit(EXIT_FAILURE);
     }
-    fprintf(stderr,"\nFIFO do cliente criado\n");
+    fprintf(stderr,"\n[CLIENTE] FIFO do cliente criado\n");
 
     c_fifo_fd = open(c_fifo_fname, O_RDWR); /* bloqueante */
     if (c_fifo_fd == -1) {
-        perror("\nErro nao abrir o FIFO do cliente\n");
+        perror("\n[CLIENTE] Erro nao abrir o FIFO do cliente\n");
         close(s_fifo_fd);
         unlink(c_fifo_fname);
         exit(EXIT_FAILURE);
     }
-    fprintf(stderr, "\nFIFO do cliente aberto para READ (+Write) BLOCK\n");
+    fprintf(stderr, "\n[CLIENTE] FIFO do cliente aberto para READ (+Write) BLOCK\n");
 
     //Verificação utilizador
     perg.pid_cliente=getpid();
@@ -71,7 +71,7 @@ int main(int argc, char *argv[]){
             exit(EXIT_FAILURE);
         }
     }else{
-        printf("[CLIENTE]Erro de comunicacao com o servidor");
+        printf("[CLIENTE] Erro de comunicacao com o servidor");
         close(c_fifo_fd);
         close(s_fifo_fd);
         unlink(c_fifo_fname);
@@ -82,7 +82,7 @@ int main(int argc, char *argv[]){
     fd_set readFd;
     int max;
     int nfd;
-    printf("Comando: ");
+    printf("[CLIENTE] Comando: ");
     fflush(stdout);
 
     while(1){
@@ -101,7 +101,7 @@ int main(int argc, char *argv[]){
             if(errno==EINTR){
                 continue;
             }
-            perror("Erro no select\n");
+            perror("[CLIENTE] Erro no select\n");
             close(c_fifo_fd);
             close(s_fifo_fd);
             unlink(c_fifo_fname);
@@ -128,7 +128,7 @@ int main(int argc, char *argv[]){
                     while(1){
                         read_res=read(c_fifo_fd, &resp, sizeof(resp));
                         if(read_res!=sizeof(resp)){
-                            fprintf(stderr,"Erro na rececao de dados\n");
+                            fprintf(stderr,"[CLIENTE] Erro na rececao de dados\n");
                             break;
                         }
                         if(strcmp(resp.responde,"FIM")==0){
@@ -149,11 +149,11 @@ int main(int argc, char *argv[]){
             }else if( read_res == 0){
                 break;
             }else{
-                perror("Erro ao ler o fifo");
+                perror("[CLIENTE] Erro ao ler o fifo");
                 break;
             }
         }
-        printf("Comando: ");
+        printf("[CLIENTE] Comando: ");
         fflush(stdout);
     }
     printf("\n[CLIENTE]Sessao a encerrar!\n");

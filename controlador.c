@@ -1,10 +1,14 @@
 #define _GNU_SOURCE
 #include "config.h"
 //ENTREGA ATÉ AO DIA 13 DE DEZEMBRO
-//SINAL
+//SINAIS
 void trataSig(int i) {
-    printf("Para terminar o Controlador utilize o comando terminar\n");
+    printf("[CONTROLADOR] Para terminar o Controlador utilize o comando terminar\n");
     fflush(stdout);
+}
+
+void trataSigThread(int i){
+    return;
 }
 
 //INICIALIZAÇÕES
@@ -12,20 +16,20 @@ int getVA(ServidorData *sd){
     char *va=getenv("NVEICULOS");
     if (va != NULL) {
         if (atoi(va) < 0) {
-            fprintf(stderr, "Erro - A variavel de ambiente NVEICULOS apresenta um valor invalido\n");
+            fprintf(stderr, "[CONTROLADOR] Erro - A variavel de ambiente NVEICULOS apresenta um valor invalido\n");
             return -1;
         } else if(atoi(va) > 10){
             sd->NVEICULOS=10;
-            fprintf(stderr, "A variavel de ambiente NVEICULOS apresenta um valor superior ao máximo permitido, valor alterado para 10\n");
+            fprintf(stderr, "[CONTROLADOR] A variavel de ambiente NVEICULOS apresenta um valor superior ao máximo permitido, valor alterado para 10\n");
         }
         else {
             sd->NVEICULOS = atoi(va);
         }
     } else {
-        fprintf(stderr, "Erro - A variavel de ambiente necessaria NVEICULOS nao se encontra definida\n");
+        fprintf(stderr, "[CONTROLADOR] Erro - A variavel de ambiente necessaria NVEICULOS nao se encontra definida\n");
         return -1;
     }
-    printf("Variavel de ambiente recebida: NVEICULOS - %d",sd->NVEICULOS);
+    printf("[CONTROLADOR] Variavel de ambiente recebida: NVEICULOS - %d",sd->NVEICULOS);
     return 0;
 }
 
@@ -33,7 +37,7 @@ void preencheVeiculos(ServidorData *sd){
     for(int i=0;i<sd->NVEICULOS; i++){
         Veiculo *novo_veiculo=(Veiculo*)malloc(sizeof(Veiculo));
             if(novo_veiculo== NULL){
-                printf("Nao foi possivel criar o veiculo");
+                printf("[CONTROLADOR] Nao foi possivel criar o veiculo");
                 exit(1);
             }
             novo_veiculo->id=i;
@@ -45,7 +49,7 @@ void preencheVeiculos(ServidorData *sd){
             novo_veiculo->pid=-1;
             sd->carros[i]=novo_veiculo;
     }
-    printf("Vetor veiculos preenchido");
+    printf("[CONTROLADOR] Vetor veiculos preenchido");
 }
 
 void preencheClientes(ServidorData *sd){
@@ -59,11 +63,14 @@ void preencheSd(ServidorData *sd){
     sd->proxIdAgendamento=1;
     sd->proxIdUser=1;
     pthread_mutex_init(&sd->lock, NULL);
+    pthread_mutex_init(&sd->lHora, NULL);
+    pthread_mutex_init(&sd->lTotalKms, NULL);
     if(getVA(sd)==-1){
         exit(EXIT_FAILURE);
     }
     preencheVeiculos(sd);
     preencheClientes(sd);
+    sd->totalKms=0;
     sd->t.atual=0;
 }
 
@@ -73,7 +80,7 @@ int verificaUser(ServidorData *sd,char *nome,char *nomeFifo){
     for(int i=0;i<NUTILIZADORES;i++){
         if(sd->users[i]!=NULL){
             if(strcmp(sd->users[i]->nome,nome)==0){
-                printf("Utilizador ja existente\n");
+                printf("[CONTROLADOR]  Utilizador ja existente\n");
                 pthread_mutex_unlock(&sd->lock);
                 return 1;
             }
@@ -84,7 +91,7 @@ int verificaUser(ServidorData *sd,char *nome,char *nomeFifo){
         if(sd->users[i]==NULL){
             ptr=(Cliente*)malloc(sizeof(Cliente));
             if(ptr== NULL){
-                printf("Nao foi possivel criar o cliente");
+                printf("[CONTROLADOR] Nao foi possivel criar o cliente");
                 pthread_mutex_unlock(&sd->lock);
                 return 2;
             }
@@ -95,12 +102,12 @@ int verificaUser(ServidorData *sd,char *nome,char *nomeFifo){
             strcpy(ptr->fName,nomeFifo);
             ptr->estado=LIVRE;
             sd->users[i]=ptr;
-            printf("Cliente criado com sucesso\n");
+            printf("[CONTROLADOR] Cliente criado com sucesso\n");
             pthread_mutex_unlock(&sd->lock);
             return 0;
         }
     }
-    printf("Nao ha espaco para mais clientes\n");
+    printf("[CONTROLADOR] Nao ha espaco para mais clientes\n");
     pthread_mutex_unlock(&sd->lock);
     return 3;
 }
@@ -135,7 +142,7 @@ int agenda(ServidorData *sd, char* nome,int hora,char *local, int distancia){
         }
     }
     free(nova_agenda);
-    printf("Cliente nao encontrado");
+    printf("[CONTROLADOR] Cliente nao encontrado");
     pthread_mutex_unlock(&sd->lock);
     return 1;
 }
@@ -193,28 +200,54 @@ int cancelar(ServidorData *sd,char*nome,int id){
 
 void lista_agenda(ServidorData *sd,char *nome,int cFifoD){
     resposta_t resposta;
+    bool erro=false;
     pthread_mutex_lock(&sd->lock);
     snprintf(resposta.responde,sizeof(resposta.responde),"INICIO");
-    write(cFifoD,&resposta,sizeof(resposta));
+    if(write(cFifoD,&resposta,sizeof(resposta))==-1 && errno == EPIPE ){
+        erro=true;
+    }
+
     for(int i=0;i<NUTILIZADORES;i++){
         if(sd->users[i]!=NULL && strcmp(sd->users[i]->nome,nome)==0){
-            if(sd->users[i]->agenda!=NULL){
+            if(sd->users[i]->agenda!=NULL && erro==false){
                 Agendamento *agenda_cliente=sd->users[i]->agenda;
-                while (agenda_cliente!=NULL){
+                while (agenda_cliente!=NULL && erro==false){
                     snprintf(resposta.responde,sizeof(resposta.responde),"Id Agendamento: %d\nHora: %d\nLocal: %s\nDistancia: %d\n\n",agenda_cliente->id,agenda_cliente->hora,agenda_cliente->local,agenda_cliente->distancia);
-                    write(cFifoD,&resposta,sizeof(resposta));
+                    if(write(cFifoD,&resposta,sizeof(resposta))==-1 && errno == EPIPE ){
+                        erro=true;
+                    }
                     agenda_cliente=agenda_cliente->prox;
                 }
-            }else{
-                strcpy(resposta.responde,"O utilizador nao tem nada agendado\n");
+            }else if(erro==false){
+                strcpy(resposta.responde,"[CONTROLADOR] O utilizador nao tem nada agendado\n");
+                if(write(cFifoD, &resposta, sizeof(resposta)) == -1 && errno == EPIPE){
+                    erro = true;
+                }
             }
-            strcpy(resposta.responde,"FIM");
-            write(cFifoD,&resposta,sizeof(resposta));
+
+            if(erro==false){
+                strcpy(resposta.responde,"FIM");
+                if(write(cFifoD,&resposta,sizeof(resposta))==-1 && errno == EPIPE ){
+                    erro=true;
+                }
+            }
+
+            if(erro==true){
+                printf("[CONTROLADOR] Nao consigo falar com o cliente. A eliminar dados...\n");
+                Agendamento *aux = sd->users[i]->agenda;
+                while(aux != NULL){
+                    Agendamento *prox = aux->prox;
+                    free(aux);
+                    aux = prox;
+                }
+                free(sd->users[i]);
+                sd->users[i] = NULL;
+            }
             pthread_mutex_unlock(&sd->lock);
             return;
         }
     }
-    strcpy(resposta.responde,"Utilizador nao encontrado\n");
+    strcpy(resposta.responde,"[CONTROLADOR] Utilizador nao encontrado\n");
     write(cFifoD,&resposta,sizeof(resposta));
     strcpy(resposta.responde,"FIM");
     write(cFifoD,&resposta,sizeof(resposta));
@@ -298,7 +331,7 @@ void lista_users(ServidorData *sd){
     pthread_mutex_lock(&sd->lock);
     for (int i=0;i<NUTILIZADORES;i++){
         if(sd->users[i]!=NULL){
-            printf("Utilizador Id: %d\nNome: %s\nEstado do Cliente: %d\nNome do fifo: %s\n",sd->users[i]->iUser,sd->users[i]->nome,sd->users[i]->estado,sd->users[i]->fName);
+            printf("[CONTROLADOR] Utilizador Id: %d\nNome: %s\nEstado do Cliente: %d\nNome do fifo: %s\n",sd->users[i]->iUser,sd->users[i]->nome,sd->users[i]->estado,sd->users[i]->fName);
         }
     }
     pthread_mutex_unlock(&sd->lock);
@@ -356,20 +389,20 @@ void *lauchCar(void *arg){
     strcpy(fName,aux->fName);
     free(aux);
 
-    sd->carros[idCarro]->distanciaT += distancia;
+    sd->carros[idCarro]->distanciaT = distancia;
 
     pthread_mutex_unlock(&sd->lock);
 
     int fd[2];
     //pipes: 1-escrita  0-leitura
     if(pipe(fd)==-1){
-        perror("Erro ao criar o canal de comunicacao com o veiculo");
+        perror("[CONTROLADOR] Erro ao criar o canal de comunicacao com o veiculo");
         return NULL;
     }
 
     pid_t pid = fork();
     if(pid == -1){
-        perror("Erro a iniciar o veiculo"); // erro a criar processo
+        perror("[CONTROLADOR] Erro a iniciar o veiculo"); // erro a criar processo
         return NULL;
     }
     if(pid==0){//filho
@@ -382,7 +415,7 @@ void *lauchCar(void *arg){
         sprintf(distanciaStr,"%d",distancia);
 
         execlp("./veiculo","veiculo",local,distanciaStr,fName,NULL);
-        perror("Ocorreu um erro na execucao do veiculo\n");
+        perror("[CONTROLADOR] Ocorreu um erro na execucao do veiculo\n");
         exit(EXIT_FAILURE);
     }
     else{//pai
@@ -408,18 +441,21 @@ void *lauchCar(void *arg){
 }
 
 void checkAgendas(ServidorData *sd){
+    pthread_mutex_lock(&sd->lHora);
+    int horaAtual=sd->t.atual;
+    pthread_mutex_unlock(&sd->lHora);
     pthread_mutex_lock(&sd->lock);
     for(int i=0; i<NUTILIZADORES;i++){
         if(sd->users[i]!=NULL){
             Agendamento *agenda=sd->users[i]->agenda;
             Agendamento *anterior=NULL;
             while(agenda!=NULL){
-                if(agenda->hora<=sd->t.atual){
+                if(agenda->hora<=horaAtual){
                     int id_carro=checkAvailability(sd);
                     if(id_carro!=-1){
                         AuxiliaLaunch *launch=malloc(sizeof(AuxiliaLaunch));
                         if(launch==NULL){
-                            perror("Erro a criar o lauch auxiliar\n");
+                            perror("[CONTROLADOR] Erro a criar o lauch auxiliar\n");
                             anterior=agenda;
                             agenda=agenda->prox;
                             continue;
@@ -430,9 +466,8 @@ void checkAgendas(ServidorData *sd){
                         strcpy(launch->local, agenda->local);
                         launch->distancia = agenda->distancia;
                         strcpy(launch->fName, sd->users[i]->fName);
-                        pthread_t tCarro;
-                        if(pthread_create(&tCarro, NULL, lauchCar,launch) != 0){
-                            perror("[ERRO] Não foi possivel lançar o carro");
+                        if(pthread_create(&sd->carros[i]->tid, NULL, lauchCar,launch) != 0){
+                            perror("[CONTROLADOR] Não foi possivel lançar o carro");
                             free(launch);
                             anterior = agenda;
                             agenda = agenda->prox;
@@ -451,7 +486,7 @@ void checkAgendas(ServidorData *sd){
                     else{
                         anterior = agenda;
                         agenda = agenda->prox;
-                        printf("Não existem carros disponiveis, assim que possivel lanco um carro");
+                        printf("[CONTROLADOR] Não existem carros disponiveis, assim que possivel lanco um carro");
                     }
                 }else{
                     anterior=agenda;
@@ -473,13 +508,34 @@ void readFrota(ServidorData *sd){
                 n = read(sd->carros[i]->fd, feedbackV, sizeof(feedbackV)-1); //SE NAO LER NAO BLOQUEIA PORQUE FOI ABERTO COM NONBLOCK
                 if (n > 0) {
                     feedbackV[n] = '\0';
-                    printf("Carro ID %d diz: %s\n", sd->carros[i]->id, feedbackV);
+                    printf("[CONTROLADOR] Carro ID %d diz: %s\n", sd->carros[i]->id, feedbackV);
                     if(sscanf(feedbackV,"[VEICULO]Percorri %d",&percentagem)==1){
+                        int kmsNovos;
+
                         pthread_mutex_lock(&sd->lock);
+                        int diferenca= percentagem-sd->carros[i]->perPercorrido;
+                        kmsNovos=(diferenca * sd->carros[i]->distanciaT) / 100;
                         sd->carros[i]->perPercorrido=percentagem;
                         pthread_mutex_unlock(&sd->lock);
+
+                        pthread_mutex_lock(&sd->lTotalKms);
+                            sd->totalKms += kmsNovos;
+                        pthread_mutex_unlock(&sd->lTotalKms);
+
                     }else if(strstr(feedbackV, "[VEICULO]Terminei ")!=NULL){
-                        printf("[CONTROLADOR]O veiculo ficou livre\n");
+                        printf("[CONTROLADOR] O veiculo ficou livre\n");
+                        pthread_mutex_lock(&sd->lock);
+                        int kms_ja_somados = (sd->carros[i]->perPercorrido * sd->carros[i]->distanciaT) / 100;
+                        int kms_em_falta = sd->carros[i]->distanciaT - kms_ja_somados;
+                        sd->carros[i]->ocupado = false;
+                        sd->carros[i]->distanciaT=0;
+                        sd->totalKms += kms_em_falta;
+                        close(sd->carros[i]->fd);
+                        pthread_mutex_unlock(&sd->lock);
+
+                        pthread_mutex_lock(&sd->lTotalKms);
+                        sd->totalKms += kms_em_falta; 
+                        pthread_mutex_unlock(&sd->lTotalKms);
                         break;
                     }
                 }
@@ -500,7 +556,7 @@ void readFrota(ServidorData *sd){
                         pthread_mutex_unlock(&sd->lock);
                     }
                     else if (errno != EAGAIN) { //SE FOR EAGAIN É SINAL QUE O CARRO NAO MANDOU NADA
-                            perror("Erro no pipe");
+                            perror("[CONTROLADOR] Erro no pipe");
                     }
                     break;
                 }
@@ -519,16 +575,16 @@ void trataPedido(ServidorData *sd,pergunta_t pergunta){
         int verifica;
         verifica=verificaUser(sd,pergunta.username,ClienteFifo);
         if(verifica==0){
-            strcpy(resposta.responde,"[CONTROLADOR]Cliente criado com sucesso\n");
+            strcpy(resposta.responde,"[CONTROLADOR] Cliente criado com sucesso\n");
             resposta.criado=1;
         }else if(verifica==1){
-            strcpy(resposta.responde,"[CONTROLADOR]Cliente ja existe pelo que nao foi criado\n");
+            strcpy(resposta.responde,"[CONTROLADOR] Cliente ja existe pelo que nao foi criado\n");
             resposta.criado=0;
         }else if(verifica==2){
-            strcpy(resposta.responde,"[CONTROLADOR]Criacao de cliente deu erro\n");
+            strcpy(resposta.responde,"[CONTROLADOR] Criacao de cliente deu erro\n");
             resposta.criado=0;
         }else{
-            strcpy(resposta.responde,"[CONTROLADOR]Cliente nao criado\nMaximo de clientes atingido\n");
+            strcpy(resposta.responde,"[CONTROLADOR] Cliente nao criado\nMaximo de clientes atingido\n");
             resposta.criado=0;
         }
     }else{
@@ -538,12 +594,12 @@ void trataPedido(ServidorData *sd,pergunta_t pergunta){
             int distancia;
             if(sscanf(pergunta.comando+8,"%d %s %d",&hora,local,&distancia)==3){
                 if(agenda(sd,pergunta.username,hora,local,distancia)==0){
-                    strcpy(resposta.responde,"[CONTROLADOR]Agendamento efetuado com sucesso\n");
+                    strcpy(resposta.responde,"[CONTROLADOR] Agendamento efetuado com sucesso\n");
                 }else{
-                    strcpy(resposta.responde,"[CONTROLADOR]Agendamento nao efetuado, erro no servidor\n");
+                    strcpy(resposta.responde,"[CONTROLADOR] Agendamento nao efetuado, erro no servidor\n");
                 }
             }else{
-                strcpy(resposta.responde,"[CONTROLADOR]Sintaxe do comando agendar incorreta\n");
+                strcpy(resposta.responde,"[CONTROLADOR] Sintaxe do comando agendar incorreta\n");
             }
 
         }else if(strcmp(pergunta.comando,"consultar")==0){
@@ -559,17 +615,17 @@ void trataPedido(ServidorData *sd,pergunta_t pergunta){
             if(sscanf(pergunta.comando+9,"%d",&id)==1){
                 int cancela=cancelar(sd,pergunta.username,id);
                 if(cancela==0){
-                    strcpy(resposta.responde,"[CONTROLADOR]Agenda com o id indicado eliminada com sucesso\n");
+                    strcpy(resposta.responde,"[CONTROLADOR] Agenda com o id indicado eliminada com sucesso\n");
                 }else if(cancela==1){
-                    strcpy(resposta.responde,"[CONTROLADOR]Nao existe nenhum agendamento com esse Id\n");
+                    strcpy(resposta.responde,"[CONTROLADOR] Nao existe nenhum agendamento com esse Id\n");
                 }else if(cancela==2){
-                    strcpy(resposta.responde,"[CONTROLADOR]Agenda eliminada\n");
+                    strcpy(resposta.responde,"[CONTROLADOR] Agenda eliminada\n");
                 }
                 else{
-                    strcpy(resposta.responde,"[CONTROLADOR]Utilizador nao encontrado\n");
+                    strcpy(resposta.responde,"[CONTROLADOR] Utilizador nao encontrado\n");
                 }
             }else{
-                strcpy(resposta.responde,"[CONTROLADOR]Sintaxe do comando cancelar incorreta\n");
+                strcpy(resposta.responde,"[CONTROLADOR] Sintaxe do comando cancelar incorreta\n");
             }
         }else if(strcmp(pergunta.comando,"terminar")==0){
             int removido;
@@ -577,20 +633,23 @@ void trataPedido(ServidorData *sd,pergunta_t pergunta){
             if(removido==0){
                 strcpy(resposta.responde,"ELIMINADO");
             }else{
-                strcpy(resposta.responde,"[CONTROLADOR]Erro a eliminar o utilizador\n");
+                strcpy(resposta.responde,"[CONTROLADOR] Erro a eliminar o utilizador\n");
             }
         }else{
-            strcpy(resposta.responde,"[CONTROLADOR]Comando Errado\n");
+            strcpy(resposta.responde,"[CONTROLADOR] Comando Errado\n");
         }
     }
 
     cFifoD = open(ClienteFifo, O_WRONLY);
     
     if(cFifoD != -1){
-        write(cFifoD, &resposta, sizeof(resposta));
+        if(write(cFifoD, &resposta, sizeof(resposta))==-1 && errno==EPIPE){
+            printf("[CONTROLADOR] Nao consigo falar com o cliente. A eliminar dados...\n");
+            remove_users(sd, pergunta.username);
+        }
         close(cFifoD);
     } else {
-        perror("Erro ao abrir FIFO do cliente para resposta");
+        perror("[CONTROLADOR] Erro ao abrir FIFO do cliente para resposta");
     }
 }
 
@@ -600,7 +659,9 @@ void trataPedido(ServidorData *sd,pergunta_t pergunta){
 void *tempo(void *arg){
     ServidorData *sd=(ServidorData *) arg;
     while(sd->ligado){
+        pthread_mutex_lock(&sd->lHora);
         sd->t.atual++;
+        pthread_mutex_unlock(&sd->lHora);
         readFrota(sd);
         checkAgendas(sd);
 
@@ -609,7 +670,16 @@ void *tempo(void *arg){
             pid_t pidRemover = waitpid(-1, NULL, WNOHANG);
             if(pidRemover<=0){
                 break;
-            }//FALTA TERMINAR AS THREADS DOS VEICULOS MORTOS!!
+            }else{
+               for(int i=0; i < sd->NVEICULOS; i++){
+                    if(sd->carros[i]->pid == pidRemover){
+                        pthread_join(sd->carros[i]->tid,NULL);
+                        printf("[CONTROLADOR] Thread do veiculo %d (PID %d) fechada com sucesso.\n",sd->carros[i]->id, pidRemover);
+                        sd->carros[i]->pid = -1; // Reset para não voltar a encontrar
+                        break;
+                    }
+                } 
+            }
         }
         sleep(UTEMPO);
     }
@@ -622,13 +692,24 @@ void *atendeCliente(void *arg){
     pergunta_t pergunta;
     int res;
 
-    fprintf(stderr, "[Thread] a iniciar escuta do FIFO\n");
+
+
+    fprintf(stderr, "[CONTROLADOR] A iniciar escuta do FIFO do cliente\n");
 
     while(sd->ligado){  //QUANDO DESLIGAR SAI DO WHILE
         res = read(sd->cFifo, &pergunta, sizeof(pergunta));
 
+        if (res == -1) {
+            if (errno == EINTR) {
+                continue;
+            }
+            perror("[CONTROLADOR] Erro na leitura do FIFO");
+        }
+
         if(res!=sizeof(pergunta)){
-            fprintf(stderr,"Erro na rececao de dados/n");
+            if(res>0){
+                fprintf(stderr,"[CONTROLADOR] Erro na rececao de dados/n");
+            }
         }
         else{
             trataPedido(sd,pergunta);
@@ -648,7 +729,6 @@ void *cAdmin(void *arg){
         comando[strcspn(comando, "\n")] = '\0';
         if(strcmp(comando, "listar") == 0){
             printf("------listar-------\n");
-
             lista_agenda_admin(sd);
             printf("-------------------\n");
 
@@ -661,36 +741,30 @@ void *cAdmin(void *arg){
             if(sscanf(comando+9,"%d",&id)==1){
                 int cancela=cancelar_admin(sd,id);
                 if(cancela==0){
-                    printf("Agenda com o id indicado eliminada com sucesso\n");
+                    printf("[CONTROLADOR] Agenda com o id indicado eliminada com sucesso\n");
                 }else if(cancela==1){
-                    printf("Nao existe nenhum agendamento com esse Id\n");
+                    printf("[CONTROLADOR] Nao existe nenhum agendamento com esse Id\n");
                 }else{
-                    printf("Agenda eliminada\n");
+                    printf("[CONTROLADOR] Agenda eliminada\n");
                 }
             }else{
-                printf("Sintaxe do comando cancelar incorreta\n");
+                printf("[CONTROLADOR] Sintaxe do comando cancelar incorreta\n");
             }
             
         }else if(strcmp(comando,"km")==0){
-            int somaKm;
-            //printf("Estou no km\n");
-            pthread_mutex_lock(&sd->lock);
-            for(int i = 0; i < sd->NVEICULOS; i++){
-                somaKm += sd->carros[i]->distanciaT;
-                printf("Veiculo %d: %dkm\n", sd->carros[i]->id, sd->carros[i]->distanciaT);
-            }
-            printf("Total de kms da frota: %d\n", somaKm);
-            pthread_mutex_unlock(&sd->lock);
+            pthread_mutex_lock(&sd->lTotalKms);
+                printf("[CONTROLADOR] O total de kms percorridos pela frota e de %d kms",sd->totalKms);
+            pthread_mutex_unlock(&sd->lTotalKms);
         }else if(strcmp(comando,"hora")==0){
-            pthread_mutex_lock(&sd->lock);
+            pthread_mutex_lock(&sd->lHora);
             int hour = sd->t.atual;
-            pthread_mutex_unlock(&sd->lock);
-            printf("Hora atual: %d\n", hour);
+            pthread_mutex_unlock(&sd->lHora);
+            printf("[CONTROLADOR] Hora atual: %d\n", hour);
         }else if(strcmp(comando,"terminar")==0){
             sd->ligado=false;
            break;
         }else {
-            printf("Comando errado\n");
+            printf("[CONTROLADOR] Comando errado\n");
         }
     }
     return NULL;
@@ -702,29 +776,44 @@ int main(){
 
     preencheSd(&sd);
 
-    printf("\nControlador Iniciado\n");
+    printf("\n[CONTROLADOR] Controlador Iniciado\n");
     if (signal(SIGINT,trataSig) == SIG_ERR) {
-        perror("\nNao foi possivel configurar o sinal SIGINT\n");
+        perror("\n[CONTROLADOR] Nao foi possivel configurar o sinal SIGINT\n");
         exit(EXIT_FAILURE);
     }
-    fprintf(stderr, "\nSinal SIGINT configurado");
+
+    struct sigaction sa;
+    sa.sa_handler = trataSigThread;
+    sa.sa_flags = 0;
+    sigemptyset(&sa.sa_mask);
+
+    if (sigaction(SIGUSR2, &sa, NULL) == -1) {
+        perror("\n[CONTROLADOR] Erro ao configurar SIGUSR2\n");
+        exit(EXIT_FAILURE);
+    }
+    
+    if(signal(SIGPIPE,SIG_IGN)==SIG_ERR){
+        perror("\n[CONTROLADOR] Erro na configuraçao de ignorar o SIGPIPE\n");
+        exit(EXIT_FAILURE);
+    }
+    fprintf(stderr, "\n[CONTROLADOR] Sinal SIGINT configurado");
     res = mkfifo(CONTROLADOR_FIFO, 0777);
     if (res == -1) {
-        perror("\nmkfifo do FIFO do servidor deu erro");
+        perror("\n[CONTROLADOR] mkfifo do FIFO do servidor deu erro");
         exit(EXIT_FAILURE);
     }
-    fprintf(stderr, "\nFIFO servidor criado");
+    fprintf(stderr, "\n[CONTROLADOR] FIFO servidor criado");
     
 
     sd.cFifo = open(CONTROLADOR_FIFO, O_RDWR);
     if (sd.cFifo == -1) {
-        perror("\nErro ao abrir o FIFO do servidor (RDWR/blocking)\n");
+        perror("\n[CONTROLADOR] Erro ao abrir o FIFO do servidor (RDWR/blocking)\n");
         exit(EXIT_FAILURE);
     }
     int flags = fcntl(STDIN_FILENO, F_GETFL, 0);
     fcntl(STDIN_FILENO, F_SETFL, flags);
 
-    printf("\nControlador aberto...\n");
+    printf("\n[CONTROLADOR] Controlador aberto...\n");
     
 
     //THREADS
@@ -741,28 +830,12 @@ int main(){
     }
 
     pthread_join(sd.tAdmin, NULL);
-    printf("\nControlador a encerrar!\n");
-    pthread_cancel(sd.tRecebe); //Necessario acordar a thread que esta presa no read PROIBIDO!!->É SUPOSTO USAR PTHREAD_KILL 
-    pthread_join(sd.tRecebe, NULL);
-    pthread_join(sd.tTime, NULL);
+    printf("\n[CONTROLADOR] Controlador a encerrar!\n");
 
-    //Mandar terminar os carros
-    for(int i=0;i<sd.NVEICULOS;i++){
-        if(sd.carros[i]->ocupado==true && sd.carros[i]->pid>0){
-            kill(sd.carros[i]->pid, SIGUSR1);
-            waitpid(sd.carros[i]->pid, NULL, 0);
-        }
-        if(sd.carros[i]->fd!=-1){
-            close(sd.carros[i]->fd);
-        }
-        free(sd.carros[i]);
-        sd.carros[i] = NULL;
-    }
-
-    //Avisar os clientes para eles fecharem
     resposta_t aviso;
-    strncpy(aviso.responde, "ENCERRAR", TAM_MAX-1);
-    aviso.responde[TAM_MAX-1] = '\0';
+    strncpy(aviso.responde, "ENCERRAR", TAM_BUFFER-1);
+    aviso.responde[TAM_BUFFER-1] = '\0';
+    aviso.criado = false;
 
     for (int i = 0; i < NUTILIZADORES; i++) {
         if (sd.users[i] != NULL) {
@@ -772,6 +845,24 @@ int main(){
                 close(fdcli);
             }
         }
+    }
+    pthread_kill(sd.tRecebe, SIGUSR2);
+    pthread_join(sd.tRecebe, NULL);
+    pthread_join(sd.tTime, NULL);
+
+    //Mandar terminar os carros
+    for(int i=0;i<sd.NVEICULOS;i++){
+        if(sd.carros[i]->ocupado==true && sd.carros[i]->pid>0){
+            kill(sd.carros[i]->pid, SIGUSR1);
+            waitpid(sd.carros[i]->pid, NULL, 0);
+            pthread_join(sd.carros[i]->tid, NULL);
+            printf("[CONTROLADOR] Thread do veiculo %d encerrada no main.\n", sd.carros[i]->id);
+        }
+        if(sd.carros[i]->fd!=-1){
+            close(sd.carros[i]->fd);
+        }
+        free(sd.carros[i]);
+        sd.carros[i] = NULL;
     }
     
     //Libertar a memoria dos clientes e agendas
@@ -788,9 +879,10 @@ int main(){
     }   
     
     pthread_mutex_destroy(&sd.lock);
+    pthread_mutex_destroy(&sd.lHora);
+    pthread_mutex_destroy(&sd.lTotalKms);
+
     close(sd.cFifo);
     unlink(CONTROLADOR_FIFO);
     return 0;
 }
-
-//TRATAR O SIGPIPE PARA NAO MORRER O CONTROLADOR DO NADA (SIGPIPE SO É ACIONADO CASO TENTE ESCREVER PARA UM PIPE QUE DO OUTRO LADO JA ESTA FECHADO)
