@@ -1,7 +1,7 @@
 #define _GNU_SOURCE
 #include "config.h"
-//ENTREGA ATÉ AO DIA 13 DE DEZEMBRO
-//SINAIS
+
+//TRATAMENTO DE SINAIS
 void trataSig(int i) {
     printf("[CONTROLADOR] Para terminar o Controlador utilize o comando terminar\n");
     fflush(stdout);
@@ -11,7 +11,7 @@ void trataSigThread(int i){
     return;
 }
 
-//INICIALIZAÇÕES
+//OBTER VARIAVEL DE AMBIENTE
 int getVA(ServidorData *sd){
     char *va=getenv("NVEICULOS");
     if (va != NULL) {
@@ -33,6 +33,7 @@ int getVA(ServidorData *sd){
     return 0;
 }
 
+//PREENCHIMENTO DE ESTRUTURAS
 void preencheVeiculos(ServidorData *sd){
     for(int i=0;i<sd->NVEICULOS; i++){
         Veiculo *novo_veiculo=(Veiculo*)malloc(sizeof(Veiculo));
@@ -365,6 +366,7 @@ void lista_agenda_admin(ServidorData *sd){
     pthread_mutex_unlock(&sd->lock);
 }
 
+//FUNÇÕES DE CONTROLO DE VEICULOS E AGENDAMENTOS
 int checkAvailability(ServidorData *sd){
     for(int i=0;i<sd->NVEICULOS;i++){
         if(sd->carros[i]->ocupado==false){
@@ -374,7 +376,7 @@ int checkAvailability(ServidorData *sd){
     return -1;
 }
 
-void *lauchCar(void *arg){
+void *lauchCar(void *arg){ //THREAD RESPONSAVEL POR LANÇAR VEICULOS
     AuxiliaLaunch *aux=(AuxiliaLaunch *) arg;
     ServidorData *sd=aux->sd;
     int idCarro=aux->idCarro; 
@@ -565,6 +567,7 @@ void readFrota(ServidorData *sd){
     }
 }
 
+//FUNÇAO RESPONSÁVEL POR PROCESSAR OS PEDIDOS DOS CLIENTES
 void trataPedido(ServidorData *sd,pergunta_t pergunta){
     resposta_t resposta;
     int cFifoD;
@@ -653,9 +656,7 @@ void trataPedido(ServidorData *sd,pergunta_t pergunta){
     }
 }
 
-
-
-//TEMPO
+//THREAD TEMPO
 void *tempo(void *arg){
     ServidorData *sd=(ServidorData *) arg;
     while(sd->ligado){
@@ -686,7 +687,7 @@ void *tempo(void *arg){
     return NULL;
 }
 
-//FUNÇOES THREADS
+//THREAD RESPONSÁVEL POR RECEBER OS PEDIDOS DOS CLIENTES
 void *atendeCliente(void *arg){
     ServidorData *sd = (ServidorData *) arg;
     pergunta_t pergunta;
@@ -718,6 +719,7 @@ void *atendeCliente(void *arg){
     return NULL;
 }
 
+//THREAD RESPONSÁVEL POR RECEBER E PROCESSAR OS COMANDOS DO ADMNISTRADOR
 void *cAdmin(void *arg){
     ServidorData *sd = (ServidorData *) arg;
     char comando[50];
